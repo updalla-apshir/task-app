@@ -16,7 +16,7 @@ import { Icons } from "@/components/ui/icons";
 function SignUpForm() {
   return (
     <div className="grid w-full grow items-center px-4 sm:justify-center">
-      <Card className="w-full sm:w-96">
+      <Card className="w-full sm:w-96 dark:bg-[#0e0c0b]">
         <CardHeader>
           <CardTitle className="text-2xl font-semibold">
             Create your account
@@ -26,10 +26,8 @@ function SignUpForm() {
           </CardDescription>
         </CardHeader>
 
-                <CardContent>
+        <CardContent>
           <div className="grid gap-y-4">
-            
-            
             <div className="">
               <Label>Email address</Label>
               <Input type="email" required />
@@ -44,15 +42,14 @@ function SignUpForm() {
               <Label>Confirm Password</Label>
               <Input type="password" required />
             </div>
-            
           </div>
-         </CardContent>
+        </CardContent>
 
         <CardFooter>
           <div className="grid w-full gap-y-4">
             <Button>Continue</Button>
-            <Button variant="link" size="sm" asChild>
-              <Link href="/sign-up">Already have an account? Sign in</Link>
+            <Button variant="link" size="sm">
+              <Link href="/sign-in">Already have an account? Sign in</Link>
             </Button>
           </div>
         </CardFooter>

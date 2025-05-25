@@ -15,8 +15,8 @@ import { Icons } from "@/components/ui/icons";
 
 function SignInForm() {
   return (
-    <div className="grid w-full grow items-center px-4 sm:justify-center">
-      <Card className="w-full sm:w-96">
+    <div className="grid w-full grow items-center px-4 sm:justify-center ">
+      <Card className="w-full sm:w-96 dark:bg-[#0e0c0b] dark:text-white">
         <CardHeader>
           <CardTitle className="text-2xl font-semibold">
             Sign in to your account
@@ -27,7 +27,7 @@ function SignInForm() {
         </CardHeader>
 
         <CardContent>
-          <div className="grid gap-y-4">
+          <div className="grid gap-y-3">
             <div className="grid grid-cols-2 gap-x-4">
               <Button size="sm" variant="outline" type="button">
                 <Icons.gitHub className="mr-2 size-4" />
@@ -57,7 +57,7 @@ function SignInForm() {
           <p className="text-right text-sm">
             <Link
               href="/forget-password"
-              className="text-gray-800 hover:text-gray-400 underline"
+              className="text-gray-800 hover:text-gray-400 underline dark:text-white"
             >
               Forgot your password?
             </Link>
@@ -65,9 +65,9 @@ function SignInForm() {
         </CardContent>
 
         <CardFooter>
-          <div className="grid w-full gap-y-4">
+          <div className="grid w-full gap-y-3">
             <Button>Continue</Button>
-            <Button variant="link" size="sm" asChild>
+            <Button variant="link" size="sm" >
               <Link href="/sign-up">Don't have account? Sign Up</Link>
             </Button>
           </div>
