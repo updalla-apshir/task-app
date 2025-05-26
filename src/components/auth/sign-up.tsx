@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { redirect, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,12 +22,20 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Label } from "../ui/label";
-import { registerUser } from "../../../actions/register";
-import { useState } from "react";
-import { CircleArrowRight, CircleCheck, Info } from "lucide-react";
-import { Toaster } from "@/components/ui/sonner";
+// import { registerUser } from "../../../actions/register";
 import { toast } from "sonner";
+import { sendVerificationCodeEmail } from "../../../actions/send-email";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { setUserData, setLoading, setError } from "@/store/features/userSlice";
+import { getUserData } from "../../../actions/register";
+
 function SignUpForm() {
+  const dispatch = useDispatch();
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
   const form = useForm({
     resolver: zodResolver(userRegisterSchema), // Enable Zod validation
     defaultValues: {
@@ -42,26 +51,77 @@ function SignUpForm() {
     confirmPassword: string;
   }) => {
     try {
-      const res = await registerUser(data);
-      if (res.success) {
-        console.log("User registered successfully");
-        form.reset();
-        toast.success("Your action was created successfully!");
-      } else if (res.errors) {
-        Object.entries(res.errors).forEach(([field, messages]) => {
-          form.setError(field as any, {
-            type: "manual",
-            message: messages?.[0] || "Invalid input",
-          });
+      setIsLoading(true);
+      dispatch(setLoading(true));
+      dispatch(setError(null));
+
+      dispatch(
+        setUserData({
+          email: data.email,
+          password: data.password, // Store password in Redux
+        })
+      );
+
+      const result = await getUserData(data.email);
+
+      if (result === "User already exists") {
+        form.setError("email", {
+          type: "manual",
+          message: result,
         });
+        toast.error(result, {
+          position: "top-center",
+        });
+        return;
+      }
+
+      const res = await sendVerificationCodeEmail(data.email);
+
+      if (res.success) {
+        toast.success("Verification code sent!", {
+          description: "Please check your email for the verification code.",
+          duration: 3000,
+          position: "top-center",
+        });
+
+        router.push("/verify-account");
+      } else {
+        const errMsg =
+          typeof res.error === "string"
+            ? res.error
+            : "Failed to send verification code";
+
+        toast.error("Failed to send verification code", {
+          position: "top-center",
+
+          description: errMsg,
+        });
+
+        dispatch(setError(errMsg));
       }
     } catch (error) {
-      console.error("Signup error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+
+      dispatch(setError(errorMessage));
+
       toast.error("Something went wrong", {
-        className: "bg-red-600 text-white",
+        position: "top-center",
+
+        description: errorMessage,
       });
+    } finally {
+      setIsLoading(false);
+      dispatch(setLoading(false));
     }
   };
+
+  const isFormValid =
+    !form.formState.errors.email &&
+    !form.formState.errors.password &&
+    !form.formState.errors.confirmPassword &&
+    form.getValues("password") === form.getValues("confirmPassword");
+
   return (
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onsubmit)}>
@@ -77,6 +137,7 @@ function SignUpForm() {
 
           <CardContent className="space-y-4">
             {/* Email Field */}
+
             <FormField
               control={form.control}
               name="email"
@@ -84,7 +145,7 @@ function SignUpForm() {
                 <FormItem>
                   <Label>Email Address</Label>
                   <FormControl>
-                    <Input type="email" {...field} />
+                    <Input type="email" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage>
                     {form.formState.errors.email?.message}
@@ -101,7 +162,7 @@ function SignUpForm() {
                 <FormItem>
                   <Label>Password</Label>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage>
                     {form.formState.errors.password?.message}
@@ -118,7 +179,7 @@ function SignUpForm() {
                 <FormItem>
                   <Label>Confirm Password</Label>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage>
                     {form.formState.errors.confirmPassword?.message ||
@@ -137,17 +198,20 @@ function SignUpForm() {
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={
-                  !!form.formState.errors.email ||
-                  !!form.formState.errors.password ||
-                  !!form.formState.errors.confirmPassword ||
-                  (form.getValues("password") !== form.getValues("confirmPassword"))
-                }
+                disabled={!isFormValid || isLoading}
                 className="disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                Continue
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending verification code...
+                  </>
+                ) : (
+                  "Continue"
+                )}
               </Button>
-              <Button variant="link" size="sm">
+
+              <Button variant="link" size="sm" disabled={isLoading}>
                 <Link href="/sign-in">Already have an account? Sign in</Link>
               </Button>
             </div>

@@ -42,19 +42,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new Error("Invalid credentials.");
         }
 
-        return { id: user.id, email: user.email };
+        return {
+          id: user.id,
+          email: user.email,
+          ...(user.emailVerified === null ? { pendingEmail: user.email } : {}),
+        };
       },
     }),
     google,
     github,
   ],
   callbacks: {
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
+   async jwt({ token, user }) {
+  if (user) {
+    token.id = user.id;
+
+    if ("pendingEmail" in user) {
+      token.pendingEmail = user.pendingEmail;
+    } else {
+      delete token.pendingEmail;
+    }
+  }
+
+  return token;
+}
+
   },
   pages: {
     signIn: "/sign-in",
