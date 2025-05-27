@@ -26,6 +26,7 @@ import { signIn } from "next-auth/react";
 import TwoFactorAuthPage from "@/app/(auth)/2fa-auth/page";
 import { useDispatch } from "react-redux";
 import { setUserData, setLoading, setError } from "@/store/features/userSlice";
+import bcrypt from "bcryptjs";
 
 function SignInForm() {
   const dispatch = useDispatch();
@@ -44,49 +45,58 @@ function SignInForm() {
   const onsubmit = async (data: { email: string; password: string }) => {
     try {
       setIsLoading(true);
+
+      // Fetch user data
       const res = await userdata(data.email);
-      if (res?.enableTwoFactorAuthentication) {
-        if (res?.email) {
-          await sendVerificationCodeEmail(res.email);
-          toast.success("Verification code sent to your email");
-
-          dispatch(
-            setUserData({
-              email: data.email,
-              password: data.password,
-            })
-          );
-          console.log("Redirecting to /2fa-auth");
-          router.push("/2fa-auth");
-
-          return;
-        } else {
-          throw new Error("User email is null");
-        }
+      if (!res?.email || !res?.password) {
+        throw new Error("Invalid email or password");
       }
 
-      const result = await signIn("credentials", {
+      // Handle 2FA
+      if (res.enableTwoFactorAuthentication) {
+        // Validate password
+        const isPasswordValid = await bcrypt.compare(
+          data.password,
+          res.password
+        );
+        if (!isPasswordValid) {
+          toast.error("Invalid email or password", { position: "top-center" });
+          return;
+        }
+        await sendVerificationCodeEmail(res.email);
+        toast.success("Verification code sent to your email", {
+          position: "top-center",
+        });
+
+        // Store user info for later 2FA use
+        dispatch(setUserData({ email: data.email, password: data.password }));
+        router.push("/2fa-auth");
+        return;
+      }
+
+      // Try signing in
+      const response = await signIn("credentials", {
         email: data.email,
         password: data.password,
         redirect: false,
       });
 
-      if (!result) {
-        throw new Error("Authentication failed");
-      }
+      if (response?.ok && response.url) {
+        toast.success("Successfully logged in!", {
+          position: "top-center",
+        });
 
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      if (result.ok) {
-        toast.success("Signed in successfully");
-        // If you need to set a cookie, get the token from your backend or session here.
-        // document.cookie = `auth_token=...; path=/; max-age=${7 * 24 * 60 * 60}; ${
-        //   process.env.NODE_ENV === 'production' ? 'secure;' : ''
-        // } samesite=lax`;
+        // Set auth cookie manually (optional if not using JWT)
+        document.cookie = `auth_token=...; path=/; max-age=${7 * 24 * 60 * 60}; ${
+          process.env.NODE_ENV === "production" ? "secure;" : ""
+        } samesite=lax`;
 
         router.push("/");
+      } else {
+        toast.error("Authentication error", {
+          description: "Please try again.",
+          position: "top-center",
+        });
       }
     } catch (error) {
       const errorMessage =
@@ -100,6 +110,7 @@ function SignInForm() {
       setIsLoading(false);
     }
   };
+
   // ... existing code ...
 
   const isFormValid =

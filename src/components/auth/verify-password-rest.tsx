@@ -11,18 +11,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { setUserData, setLoading, setError } from "@/store/features/userSlice";
-import { registerUser } from "../../../actions/register";
-import { setAuthenticated } from "@/store/features/userSlice";
-import { setVerificationStatus } from "@/store/features/userSlice";
 import { signIn } from "next-auth/react";
+import { resetPassword } from "../../../actions/sign-in";
+import NewPasswordPage from "@/app/(auth)/new-password/page";
 
 interface VerifyAccountProps {
   email: string;
-  password: string;
 }
 
-export function Twofauth({ email, password }: VerifyAccountProps) {
+export function VerifyPassComponent({ email }: VerifyAccountProps) {
   const id = useId();
   const router = useRouter();
   const [otp, setOtp] = useState<string>("");
@@ -90,32 +87,15 @@ export function Twofauth({ email, password }: VerifyAccountProps) {
     try {
       setIsVerifying(true);
 
-      // First verify the OTP
       const isValid = await verifyCode(email, otp);
-      
-      if (isValid === true) {
-        const response = await signIn("credentials", {
-          email: email,
-          password: password,
-          redirect: false,
-        })
 
-        if (response.ok) {
-          toast.success("Email verified successfully!", {
-            position: "top-center",
-          });
-          document.cookie = `auth_token=...; path=/; max-age=${7 * 24 * 60 * 60}; ${
-          process.env.NODE_ENV === "production" ? "secure;" : ""
-        } samesite=lax`;
-          router.push("/");
-        } else {
-          toast.error("Authentication failed", {
-            description: "Please try again.",
-            position: "top-center",
-          });
-        }
+      if (isValid === true) {
+        toast.success("Verified OTP",{
+          position:"top-center"
+        });
+        router.push('/new-password')
       } else if (isValid === "expired") {
-        toast.error("OTP has expired, please request a new one", {
+        toast.error("OTP has expired,   request a new one", {
           description: "Please request a new code.",
           position: "top-center",
         });
