@@ -16,8 +16,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   password      String?
-  // Optional for WebAuthn support
- 
+  enableTwoFactorAuthentication   Boolean? @default(false)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 }

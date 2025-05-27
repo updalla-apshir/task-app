@@ -13,15 +13,16 @@ interface CredentialsInput {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
+      name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
-        if (!credentials || !credentials.email || !credentials.password) {
+        const { email, password } = credentials as CredentialsInput;
+        if (!email || !password) {
           throw new Error("Email and password are required.");
         }
-        const { email, password } = credentials as CredentialsInput;
 
         const user = await prisma.user.findUnique({
           where: {
@@ -36,7 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!user.password) {
           throw new Error("Invalid credentials.");
         }
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        const isPasswordValid = await bcrypt.compare(password, user.password!);
 
         if (!isPasswordValid) {
           throw new Error("Invalid credentials.");
@@ -45,7 +46,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return {
           id: user.id,
           email: user.email,
-          ...(user.emailVerified === null ? { pendingEmail: user.email } : {}),
         };
       },
     }),
@@ -53,20 +53,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     github,
   ],
   callbacks: {
-   async jwt({ token, user }) {
-  if (user) {
-    token.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
 
-    if ("pendingEmail" in user) {
-      token.pendingEmail = user.pendingEmail;
-    } else {
-      delete token.pendingEmail;
-    }
-  }
+        if ("pendingEmail" in user) {
+          token.pendingEmail = user.pendingEmail;
+        } else {
+          delete token.pendingEmail;
+        }
+      }
 
-  return token;
-}
-
+      return token;
+    },
   },
   pages: {
     signIn: "/sign-in",
