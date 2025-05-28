@@ -104,7 +104,7 @@ export function Twofauth({ email, password }: VerifyAccountProps) {
           toast.success("Email verified successfully!", {
             position: "top-center",
           });
-          document.cookie = `auth_token=...; path=/; max-age=${7 * 24 * 60 * 60}; ${
+          document.cookie = `auth_token=user_login; path=/; max-age=${7 * 24 * 60 * 60}; ${
           process.env.NODE_ENV === "production" ? "secure;" : ""
         } samesite=lax`;
           router.push("/");

@@ -17,6 +17,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { setAuthenticated } from "@/store/features/userSlice";
 import { setVerificationStatus } from "@/store/features/userSlice";
+import { signIn } from "next-auth/react";
 
 interface VerifyAccountProps {
   email: string;
@@ -106,22 +107,25 @@ export function VerifyAccount({ email }: VerifyAccountProps) {
           confirmPassword: password,
         });
 
-        if (result.success && result.token) {
-          // Set auth token cookie
-          document.cookie = `auth_token=${result.token}; path=/; max-age=${7 * 24 * 60 * 60}; ${
-            process.env.NODE_ENV === 'production' ? 'secure;' : ''
-          } samesite=lax`;
-
+        if (result.success) {
+         
           dispatch(setUserData({ 
-            email: result.user.email || ""
+            email: result.user?.email || ""
           }));
           dispatch(setAuthenticated(true));
           dispatch(setVerificationStatus(true));
           
+          const res = await signIn("credentials",{
+            email:email,
+            password:password,
+            redirect:false
+          })
+
           toast.success("Registration successful!", {
             position: "top-center",
           });
-          router.push("/dashboard");
+
+          router.push("/");
         } else {
           let errorMessage = 'Registration failed. Please try again.';
           

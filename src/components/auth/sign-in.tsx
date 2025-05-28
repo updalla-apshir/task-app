@@ -27,6 +27,8 @@ import TwoFactorAuthPage from "@/app/(auth)/2fa-auth/page";
 import { useDispatch } from "react-redux";
 import { setUserData, setLoading, setError } from "@/store/features/userSlice";
 import bcrypt from "bcryptjs";
+import { GoogleLoginButton } from "./google-login-button";
+import { GithubLoginButton } from "./github-login-button";
 
 function SignInForm() {
   const dispatch = useDispatch();
@@ -86,17 +88,9 @@ function SignInForm() {
           position: "top-center",
         });
 
-        // Set auth cookie manually (optional if not using JWT)
-        document.cookie = `auth_token=...; path=/; max-age=${7 * 24 * 60 * 60}; ${
-          process.env.NODE_ENV === "production" ? "secure;" : ""
-        } samesite=lax`;
-
         router.push("/");
       } else {
-        toast.error("Authentication error", {
-          description: "Please try again.",
-          position: "top-center",
-        });
+        toast.error("Invalid email or password", { position: "top-center" });
       }
     } catch (error) {
       const errorMessage =
@@ -132,14 +126,8 @@ function SignInForm() {
           <CardContent>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-x-4">
-                <Button size="sm" variant="outline" type="button">
-                  <Icons.gitHub className="mr-2 size-4" />
-                  GitHub
-                </Button>
-                <Button size="sm" variant="outline" type="button">
-                  <Icons.google className="mr-2 size-4" />
-                  Google
-                </Button>
+                <GithubLoginButton />
+                <GoogleLoginButton />
               </div>
               <p className="flex items-center gap-x-3 text-sm text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
                 or
