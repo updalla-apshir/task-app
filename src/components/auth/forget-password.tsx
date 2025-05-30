@@ -21,7 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { userdata } from "../../../actions/sign-in";
 import { sendVerificationCodeEmail } from "../../../actions/send-email";
-import { useDispatch } from 'react-redux'
+import { useDispatch } from "react-redux";
 import { initiateReset } from "@/store/features/resetPasswordSlice";
 const emailSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -35,8 +35,7 @@ export default function ForgetPassword() {
     },
   });
   const router = useRouter();
-const dispatch = useDispatch()
-
+  const dispatch = useDispatch();
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,7 +44,9 @@ const dispatch = useDispatch()
     try {
       const response = await userdata(data.email);
       if (!response?.email) {
-        toast.error("Invalid email Address!", {});
+        toast.error("Invalid email Address!", {
+          position: "top-center",
+        });
         setIsLoading(false);
         return;
       }
@@ -54,7 +55,7 @@ const dispatch = useDispatch()
       toast.success("Password reset link sent to your email!", {
         position: "top-center",
       });
-        dispatch(initiateReset(data.email)); // This stores the email in Redux
+      dispatch(initiateReset(data.email)); // This stores the email in Redux
 
       router.push("/verify-email");
     } catch (error) {
@@ -87,7 +88,7 @@ const dispatch = useDispatch()
                     <FormItem>
                       <Label>Email Address</Label>
                       <FormControl>
-                        <Input type="email" {...field} disabled={isLoading} />
+                        <Input {...field} disabled={isLoading} />
                       </FormControl>
                       <FormMessage>
                         {form.formState.errors.email?.message}
