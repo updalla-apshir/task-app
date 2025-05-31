@@ -1,4 +1,6 @@
-// components/Topbar.tsx
+"use client";
+
+import { useSession, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +14,11 @@ import {
 import { Bell, Search, Menu, User } from "lucide-react";
 import Link from "next/link";
 import { ModeToggle } from "./mode-toggle";
-import { auth, signOut } from "@/lib/auth";
 
-export default async function Topbar({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await auth();
+export default function Topbar({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+
+  if (status === "loading") return null;
 
   if (!session) {
     return (
@@ -35,15 +34,13 @@ export default async function Topbar({
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
       <nav className="container flex h-16 items-center justify-between px-4 max-w-screen-2xl mx-auto">
-        {/* Left Section: Logo/Menu + Search */}
+        {/* Left Section */}
         <div className="flex items-center gap-6 flex-1">
           <div className="flex items-center gap-2">{children}</div>
 
-          {/* Search Bar */}
           <div className="hidden md:block w-full max-w-sm">
             <div className="relative group">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none group-focus-within:text-primary" />
               <input
                 type="search"
                 placeholder="Search anything..."
@@ -53,23 +50,21 @@ export default async function Topbar({
           </div>
         </div>
 
-        {/* Right Section: Actions + User */}
+        {/* Right Section */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative h-10 w-10 rounded-full hover:bg-muted/50 transition-colors"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-2 top-2.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </span>
-            </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative h-10 w-10 rounded-full hover:bg-muted/50 transition-colors"
+          >
+            <Bell className="h-5 w-5" />
+            <span className="absolute right-2 top-2.5 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+          </Button>
 
-            <ModeToggle />
-          </div>
+          <ModeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -92,7 +87,7 @@ export default async function Topbar({
             <DropdownMenuContent
               align="end"
               sideOffset={8}
-              className="w-64 p-2 rounded-xl border dark:bg-[#0e0c0b] bg-popover/95 backdrop-blur-sm shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+              className="w-64 p-2 rounded-xl border bg-popover/95 backdrop-blur-sm shadow-lg"
             >
               <div className="flex items-center gap-3 p-2 rounded-md">
                 <Avatar className="h-10 w-10 border-2 border-primary/10">
@@ -138,21 +133,14 @@ export default async function Topbar({
 
               <DropdownMenuSeparator className="my-2" />
 
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut();
-                }}
+              <DropdownMenuItem
+                onClick={() => signOut()}
+                className="rounded-md text-red-500 hover:text-red-600 cursor-pointer focus:text-red-600"
               >
-                <DropdownMenuItem className="rounded-md text-red-500 hover:text-red-600 cursor-pointer focus:text-red-600">
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-2 py-1.5"
-                  >
-                    <span className="text-sm font-medium">Log out</span>
-                  </button>
-                </DropdownMenuItem>
-              </form>
+                <span className="flex w-full items-center gap-2 py-1.5 text-sm font-medium">
+                  Log out
+                </span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
