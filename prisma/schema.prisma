@@ -3,6 +3,18 @@ enum Role {
   Admin
 }
 
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
 datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
@@ -25,6 +37,8 @@ model User {
   enableTwoFactorAuthentication Boolean?  @default(false)
   createdAt                     DateTime  @default(now())
   updatedAt                     DateTime  @updatedAt
+  assignedTasks                 Task[]    @relation("AssignedTasks")
+  createdTasks                  Task[]    @relation("CreatedTasks")
 }
 
 model Account {
@@ -78,4 +92,29 @@ model OTP {
 
   @@unique([email, code])
   @@index([email])
+}
+
+model Task {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  status      String    @default("pending") // Or make it enum if status is predefined
+  priority    String    @default("medium") // Same here, can be enum
+  due_date    DateTime?
+  start_date  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  assigned_to String?   @db.ObjectId
+  created_by  String    @db.ObjectId
+  project_id  String    @db.ObjectId
+  is_archived Boolean   @default(false)
+  assignedTo  User?     @relation("AssignedTasks", fields: [assigned_to], references: [id])
+  createdBy   User      @relation("CreatedTasks", fields: [created_by], references: [id])
+  project     Project   @relation(fields: [project_id], references: [id])
+}
+
+model Project {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String
+  tasks Task[]
 }

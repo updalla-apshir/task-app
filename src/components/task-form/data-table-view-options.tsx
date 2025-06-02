@@ -3,6 +3,7 @@
 import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
 import { MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { Table } from "@tanstack/react-table";
+import { SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,14 +14,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Settings2 } from "lucide-react";
-import { useValue } from "@/hooks/useContext";
+import { useValue } from "@/contexts/KanbanContext";
+import { cn } from "@/lib/utils";
 
 interface DataTableViewOptionsProps<TData> {
   table: Table<TData>;
+  className?: string;
 }
 
 export function DataTableViewOptions<TData>({
   table,
+  className,
 }: DataTableViewOptionsProps<TData>) {
   const { value, setValue } = useValue();
 
@@ -30,9 +34,9 @@ export function DataTableViewOptions<TData>({
         <Button
           variant="outline"
           size="sm"
-          className="ml-auto hidden h-8 lg:flex"
+          className={cn("ml-auto hidden h-8 lg:flex", className)}
         >
-          <Settings2 />
+          <SlidersHorizontal className="mr-2 h-4 w-4" />
           View
         </Button>
       </DropdownMenuTrigger>

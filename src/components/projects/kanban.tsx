@@ -7,10 +7,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { ReactNode } from "react";
-import { Check, Circle } from "lucide-react";
-import type { Priority } from "@/lib/data";
-import { isValid } from "date-fns";
-import { format } from "date-fns";
 
 export type Status = {
   id: string;
@@ -25,8 +21,8 @@ export type Feature = {
   startAt: Date;
   endAt: Date;
   status: Status;
-  priority: Priority;
-  isCompleted: boolean;
+  priority: "Low" | "Medium" | "High";
+  progress: number; // optional progress (0-100), if you want manual override
 };
 
 export type KanbanBoardProps = {
@@ -52,30 +48,29 @@ export const KanbanBoard = ({ id, children, className }: KanbanBoardProps) => {
   );
 };
 
-export type KanbanCardProps = {
-  id: string;
-  name: string;
-  desc?: string;
-  startAt: string | Date;
-  endAt: string | Date;
-  status: Status;
-  priority: Priority;
-  isCompleted: boolean;
+export type KanbanCardProps = Pick<
+  Feature,
+  "id" | "name" | "priority" | "desc" | "startAt" | "endAt" | "progress"
+> & {
   index: number;
   parent: string;
-  onToggleComplete?: (id: string) => void;
+  status?: Status;
+  onProgressChange?: (id: string, progress: number) => void;
   children?: ReactNode;
   className?: string;
 };
 
-const priorityColors: Record<string, string> = {
-  HIGH: "bg-red-300 text-red-900",
-  MEDIUM: "bg-yellow-300 text-yellow-900",
-  LOW: "bg-green-300 text-green-900",
-} as const;
+const priorityColors = {
+  Low: "bg-green-300 text-green-900",
+  Medium: "bg-yellow-300 text-yellow-900",
+  High: "bg-red-300 text-red-900",
+};
 
-function getDate(date: string | Date): Date {
-  return date instanceof Date ? date : new Date(date);
+function formatDate(date: Date) {
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month} ${day}, ${year}`;
 }
 
 export const KanbanCard = ({
@@ -85,10 +80,11 @@ export const KanbanCard = ({
   index,
   parent,
   desc,
+  startAt,
   endAt,
-  isCompleted,
+  progress,
   status,
-  onToggleComplete,
+  onProgressChange,
   children,
   className,
 }: KanbanCardProps) => {
@@ -109,13 +105,12 @@ export const KanbanCard = ({
     transition,
   };
 
-  const date = getDate(endAt);
-  const formattedDate = isValid(date) ? format(date, "MMM d, yyyy") : "Invalid date";
+  const formattedDate = formatDate(endAt);
 
   return (
     <Card
       className={cn(
-        "rounded-md p-3 shadow-sm touch-none hover:shadow-md transition-shadow",
+        "rounded-md p-3 shadow-sm touch-none",
         isDragging && "cursor-grabbing opacity-50",
         className
       )}
@@ -124,49 +119,8 @@ export const KanbanCard = ({
       {...attributes}
       ref={setNodeRef}
     >
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex items-start gap-2 flex-1">
-          {/* Completion Toggle Button */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleComplete?.(id);
-            }}
-            className={cn(
-              "mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-              isCompleted 
-                ? "bg-green-500 border-green-500 text-white hover:bg-green-600" 
-                : "border-gray-300 hover:border-gray-400"
-            )}
-          >
-            {isCompleted ? (
-              <Check className="w-3 h-3" />
-            ) : (
-              <Circle className="w-3 h-3 text-transparent" />
-            )}
-          </button>
-          
-          <div className="flex-1">
-            <p className={cn(
-              "m-0 font-semibold text-sm",
-              isCompleted && "line-through text-gray-500"
-            )}>
-              {name}
-            </p>
-            
-            {/* Description */}
-            {desc && (
-              <p className={cn(
-                "text-xs mb-2 text-gray-700",
-                isCompleted && "line-through text-gray-400"
-              )}>
-                {desc}
-              </p>
-            )}
-          </div>
-        </div>
-
+      <div className="flex justify-between items-center mb-1">
+        <p className="m-0 font-semibold text-sm">{name}</p>
         <span
           className={cn(
             "rounded-full px-2 py-0.5 text-xs font-semibold",
@@ -177,10 +131,33 @@ export const KanbanCard = ({
         </span>
       </div>
 
-      {/* Due Date */}
+      {/* Description */}
+      {desc && <p className="text-xs mb-2 text-gray-700">{desc}</p>}
+
+      {/* Dates */}
       <p className="text-xs text-gray-500 mb-2">
-        Due: <time dateTime={date.toISOString()}>{formattedDate}</time>
+        Due: <time dateTime={endAt.toISOString()}>{formattedDate}</time>
       </p>
+
+      {/* Progress Bar */}
+      <div
+        className="w-full bg-gray-200 rounded h-3 cursor-pointer"
+        // onClick={(e) => {
+        //   if (onProgressChange) {
+        //     const rect = e.currentTarget.getBoundingClientRect();
+        //     const x = e.clientX - rect.left;
+        //     const width = rect.width;
+        //     const newProgress = Math.round((x / width) * 100);
+        //     onProgressChange(id, Math.max(0, Math.min(100, newProgress)));
+        //   }
+        // }}
+      >
+        <div
+          className="h-3 rounded bg-blue-500 transition-all"
+          style={{ width: `${progress}%` }}
+          title={`${progress}% complete`}
+        />
+      </div>
 
       {children}
     </Card>

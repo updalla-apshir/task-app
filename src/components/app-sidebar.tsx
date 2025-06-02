@@ -55,11 +55,11 @@ const data = {
       icon: LayoutDashboard,
     },
     {
-      title: "My Tasks",
+      title: "Tasks",
       url: "/tasks",
       icon: ListChecks,
       items: [
-        { title: "Assigned to me", url: "/tasks" },
+        { title: "All Tasks", url: "/tasks" },
         { title: "Due today", url: "/tasks/today" },
         { title: "Upcoming", url: "/tasks/upcoming" },
         { title: "Completed", url: "/tasks/completed" },

@@ -23,19 +23,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
+} from "@/components/ui/table";
 
 import { DataTablePagination } from "./data-table-pagination";
 import { DataTableToolbar } from "./data-table-toolbar";
+import { Task } from "@/lib/data";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  onTaskUpdate?: (task: Task) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onTaskUpdate,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -65,10 +68,13 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    meta: {
+      onTaskUpdate,
+    },
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mt-4">
       <DataTableToolbar table={table} />
       <div className="rounded-md border">
         <Table>

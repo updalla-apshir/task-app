@@ -1,9 +1,10 @@
 export interface Task {
   id: string
   title: string
-  description: string
   status: string
+  label?: string
   priority: string
-  createdAt: Date
-  updatedAt: Date
+  completed: boolean
+  dueDate?: Date
+  project?: string
 } 

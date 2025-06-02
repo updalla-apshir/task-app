@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   KanbanBoard,
   KanbanCards,
@@ -8,7 +8,9 @@ import {
   KanbanHeader,
   Status,
   Feature,
-} from "./kanban"; // your kanban components
+} from "./kanban";
+
+import { Task, Priority } from "@/lib/data";
 
 import {
   DndContext,
@@ -26,80 +28,52 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Settings2 } from "lucide-react";
+import { Settings2, SlidersHorizontal } from "lucide-react";
 import { Button } from "../ui/button";
-import { useValue, ValueProvider } from "@/hooks/useContext";
+import { useTasks } from "@/contexts/TaskContext";
+import { cn } from "@/lib/utils";
+import {
+  format,
+  isAfter,
+  isBefore,
+  isToday,
+  isThisWeek,
+  isThisMonth,
+  startOfToday,
+  isValid,
+} from "date-fns";
+import { useValue } from "@/contexts/KanbanContext";
 
-// Define statuses
-const exampleStatuses: Status[] = [
-  { id: "1", name: "Planned", color: "#6B7280" },
-  { id: "2", name: "In Progress", color: "#F59E0B" },
-  { id: "3", name: "Done", color: "#10B981" },
-];
-
-// Helper function to get status based on progress
-const getStatusFromProgress = (progress: number): Status => {
-  if (progress === 0) return exampleStatuses[0]; // Planned
-  if (progress === 100) return exampleStatuses[2]; // Done
-  return exampleStatuses[1]; // In Progress
-};
-
-// Raw feature data with date strings
-const rawFeatures: Feature[] = [
-  {
-    id: "1",
-    name: "AI Scene Analysis",
-    desc: "Analyze scenes using AI to improve production quality.",
-    startAt: new Date("2025-05-01"),
-    endAt: new Date("2025-06-15"),
-    status: exampleStatuses[0],
-    priority: "High",
-    progress: 10,
-  },
-  {
-    id: "2",
-    name: "Collaborative Editing",
-    desc: "Allow multiple users to edit videos simultaneously.",
-    startAt: new Date("2025-04-01"),
-    endAt: new Date("2025-05-20"),
-    status: exampleStatuses[1],
-    priority: "Medium",
-    progress: 20,
-  },
-  {
-    id: "3",
-    name: "AI-Powered Color Grading",
-    desc: "Use AI to automatically grade colors.",
-    startAt: new Date("2025-03-01"),
-    endAt: new Date("2025-04-30"),
-    status: exampleStatuses[2],
-    priority: "Low",
-    progress: 80,
-  },
-  // Additional features can be added here
+// Define priorities with proper typing
+const priorityColumns: Array<{ id: Priority; name: string; color: string }> = [
+  { id: "HIGH", name: "High Priority", color: "#EF4444" },
+  { id: "MEDIUM", name: "Medium Priority", color: "#F59E0B" },
+  { id: "LOW", name: "Low Priority", color: "#10B981" },
 ];
 
 export default function TaskKanban() {
-  const [features, setFeatures] = useState<Feature[]>(() =>
-    rawFeatures.map((f) => ({
-      ...f,
-      startAt: new Date(f.startAt),
-      endAt: new Date(f.endAt),
-      status: getStatusFromProgress(f.progress),
-    }))
+  const { tasks, updateTask } = useTasks();
+  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(
+    null
   );
-
-  const [selectedStatusId, setSelectedStatusId] = useState<string | null>(null);
+  const [completionFilter, setCompletionFilter] = useState<
+    "all" | "completed" | "incomplete"
+  >("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const tasksPerPage = 10;
 
   return (
     <TaskKanbanContent
-      features={features}
-      setFeatures={setFeatures}
-      selectedStatusId={selectedStatusId}
-      setSelectedStatusId={setSelectedStatusId}
+      tasks={tasks}
+      updateTask={updateTask}
+      selectedPriority={selectedPriority}
+      setSelectedPriority={setSelectedPriority}
+      completionFilter={completionFilter}
+      setCompletionFilter={setCompletionFilter}
+      dateFilter={dateFilter}
+      setDateFilter={setDateFilter}
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       currentPage={currentPage}
@@ -109,29 +83,43 @@ export default function TaskKanban() {
   );
 }
 
-function TaskKanbanContent({
-  features,
-  setFeatures,
-  selectedStatusId,
-  setSelectedStatusId,
-  searchQuery,
-  setSearchQuery,
-  currentPage,
-  setCurrentPage,
-  tasksPerPage,
-}: {
-  features: Feature[];
-  setFeatures: React.Dispatch<React.SetStateAction<Feature[]>>;
-  selectedStatusId: string | null;
-  setSelectedStatusId: (id: string | null) => void;
+type DateFilter = "all" | "today" | "this-week" | "this-month" | "overdue";
+
+interface TaskKanbanContentProps {
+  tasks: Task[];
+  updateTask: (task: Task) => void;
+  selectedPriority: Priority | null;
+  setSelectedPriority: (priority: Priority | null) => void;
+  completionFilter: "all" | "completed" | "incomplete";
+  setCompletionFilter: (filter: "all" | "completed" | "incomplete") => void;
+  dateFilter: DateFilter;
+  setDateFilter: (filter: DateFilter) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   currentPage: number;
   setCurrentPage: (page: number) => void;
   tasksPerPage: number;
-}) {
-  const { value, setValue } = useValue();
+}
 
+function getDate(date: string | Date): Date {
+  return date instanceof Date ? date : new Date(date);
+}
+
+function TaskKanbanContent({
+  tasks,
+  updateTask,
+  selectedPriority,
+  setSelectedPriority,
+  completionFilter,
+  setCompletionFilter,
+  dateFilter,
+  setDateFilter,
+  searchQuery,
+  setSearchQuery,
+  currentPage,
+  setCurrentPage,
+  tasksPerPage,
+}: TaskKanbanContentProps) {
   // Enhanced sensors configuration
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -143,205 +131,274 @@ function TaskKanbanContent({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  const { value, setValue } = useValue();
 
-  // Filter features by selected status and search query
-  const filteredFeatures = features
-    .filter((f) => !selectedStatusId || f.status.id === selectedStatusId)
-    .filter((f) =>
-      f.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+  // Enhanced filtering with date filter
+  const filteredTasks = tasks
+    .filter((f) => !selectedPriority || f.priority === selectedPriority)
+    .filter((f) => {
+      if (completionFilter === "all") return true;
+      return completionFilter === "completed" ? f.isCompleted : !f.isCompleted;
+    })
+    .filter((f) => {
+      const today = startOfToday();
+      const endDate = getDate(f.endAt);
+
+      if (!isValid(endDate)) return false;
+
+      switch (dateFilter) {
+        case "today":
+          return isToday(endDate);
+        case "this-week":
+          return isThisWeek(endDate);
+        case "this-month":
+          return isThisMonth(endDate);
+        case "overdue":
+          return isBefore(endDate, today) && !f.isCompleted;
+        default:
+          return true;
+      }
+    })
+    .filter(
+      (f) =>
+        f.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        f.desc?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        f.project?.toLowerCase().includes(searchQuery.toLowerCase().trim())
     );
 
   // Calculate pagination
-  const totalPages = Math.ceil(filteredFeatures.length / tasksPerPage);
+  const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
   const startIndex = (currentPage - 1) * tasksPerPage;
-  const paginatedFeatures = filteredFeatures.slice(
+  const paginatedTasks = filteredTasks.slice(
     startIndex,
     startIndex + tasksPerPage
   );
-
-  // Update features with new status when progress changes
-  const updateFeatureProgress = (featureId: string, newProgress: number) => {
-    setFeatures((prevFeatures) =>
-      prevFeatures.map((feature) =>
-        feature.id === featureId
-          ? {
-              ...feature,
-              progress: newProgress,
-              status: getStatusFromProgress(newProgress),
-            }
-          : feature
-      )
-    );
-  };
 
   // Handles drag end event
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = paginatedFeatures.findIndex((f) => f.id === active.id);
-      const newIndex = paginatedFeatures.findIndex((f) => f.id === over.id);
+      const oldIndex = paginatedTasks.findIndex((f) => f.id === active.id);
+      const newIndex = paginatedTasks.findIndex((f) => f.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newFeatures = [...features];
-        const globalOldIndex = features.findIndex((f) => f.id === active.id);
-        const globalNewIndex = features.findIndex((f) => f.id === over.id);
+        const newTasks = [...tasks];
+        const globalOldIndex = tasks.findIndex((f) => f.id === active.id);
+        const globalNewIndex = tasks.findIndex((f) => f.id === over.id);
 
-        const [movedItem] = newFeatures.splice(globalOldIndex, 1);
-        newFeatures.splice(globalNewIndex, 0, movedItem);
-
-        setFeatures(newFeatures);
+        const [movedItem] = newTasks.splice(globalOldIndex, 1);
+        // Update priority based on the target column
+        const targetColumn = priorityColumns.find((p) => p.id === over.id);
+        if (targetColumn) {
+          movedItem.priority = targetColumn.id;
+          updateTask(movedItem);
+        }
+        newTasks.splice(globalNewIndex, 0, movedItem);
       }
     }
   }
 
   return (
     <div className="p-4 mx-auto">
-      {/* Search Input */}
-      <div className="flex flex-col mb-4 md:flex-row md:items-center justify-between gap-4">
-        {/* Search Bar */}
-        <div className="w-full md:w-1/3">
-          <input
-            type="text"
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Search and Filters */}
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search Bar */}
+          <div className="w-full md:w-1/3">
+            <input
+              type="text"
+              placeholder="Search tasks, descriptions, or projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-        {/* Filters and List View */}
-        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full md:w-auto">
-          {/* Status Filter Bar */}
-          <div className="flex flex-wrap space-x-4 md:space-x-6 border-b border-gray-300 pb-2 md:pb-0 md:border-b-0">
+          {/* Priority Filter */}
+          <div className="flex space-x-2 md:space-x-6">
             <button
-              className={`px-3 py-1 text-sm font-semibold border-b-2 transition-colors ${
-                selectedStatusId === null
+              className={`px-1 py-1 text-sm font-semibold border-b-2 transition-colors ${
+                selectedPriority === null
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => setSelectedStatusId(null)}
+              onClick={() => setSelectedPriority(null)}
             >
-              All
+              All Priorities
             </button>
-            {exampleStatuses.map(({ id, name, color }) => (
+            {priorityColumns.map((priority) => (
               <button
-                key={id}
+                key={priority.id}
                 className={`px-3 py-1 text-sm font-semibold border-b-2 transition-colors ${
-                  selectedStatusId === id
-                    ? "border-current font-bold"
+                  selectedPriority === priority.id
+                    ? "border-current"
                     : "border-transparent hover:text-opacity-80"
                 }`}
                 style={{
-                  color: color,
-                  borderColor: selectedStatusId === id ? color : "transparent",
+                  color: priority.color,
+                  borderColor:
+                    selectedPriority === priority.id
+                      ? priority.color
+                      : "transparent",
                 }}
-                onClick={() => setSelectedStatusId(id)}
+                onClick={() => setSelectedPriority(priority.id)}
               >
-                {name}
+                {priority.name}
+              </button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("ml-auto  h-8 ")}
+            onClick={() => setValue("task")}
+          >
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            List View
+          </Button>
+        </div>
+
+        {/* Date and Completion Filters */}
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          {/* Date Filter */}
+          <div className="flex space-x-4 md:space-x-6">
+            {[
+              { value: "all", label: "All Dates" },
+              { value: "today", label: "Due Today" },
+              { value: "this-week", label: "Due This Week" },
+              { value: "this-month", label: "Due This Month" },
+              { value: "overdue", label: "Overdue" },
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                className={`px-3 py-1 text-sm font-semibold border-b-2 transition-colors ${
+                  dateFilter === value
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+                onClick={() => setDateFilter(value as DateFilter)}
+              >
+                {label}
               </button>
             ))}
           </div>
 
-          {/* List View Button */}
-          <div className="self-start md:self-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setValue("task")}
-            >
-              List View
-            </Button>
+          {/* Completion Filter */}
+          <div className="flex gap-2">
+            {[
+              { value: "all", label: "All Tasks" },
+              { value: "completed", label: "Completed" },
+              { value: "incomplete", label: "Incomplete" },
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                  completionFilter === value
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+                onClick={() =>
+                  setCompletionFilter(value as typeof completionFilter)
+                }
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Task List with Drag and Drop */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <KanbanBoard id="tasks">
-          <KanbanHeader
-            name={
-              selectedStatusId
-                ? exampleStatuses.find((s) => s.id === selectedStatusId)
-                    ?.name || "Tasks"
-                : "All Tasks"
-            }
-            color={
-              selectedStatusId
-                ? exampleStatuses.find((s) => s.id === selectedStatusId)
-                    ?.color || "#000"
-                : "#000"
-            }
-          />
-          <SortableContext
-            items={paginatedFeatures.map((f) => f.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <KanbanCards>
-              {paginatedFeatures.length === 0 ? (
-                <p className="p-4 text-center text-gray-500">No tasks found.</p>
-              ) : (
-                paginatedFeatures.map(
-                  ({
-                    id,
-                    name,
-                    priority,
-                    desc,
-                    startAt,
-                    endAt,
-                    status,
-                    progress,
-                  }) => (
+      {/* Kanban Board */}
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {priorityColumns.map((priority) => (
+            <KanbanBoard key={priority.id} id={priority.id}>
+              <div className="flex items-center justify-between mb-2">
+                <KanbanHeader name={priority.name} color={priority.color} />
+                <span className="text-xs font-medium text-gray-500">
+                  {
+                    filteredTasks.filter((f) => f.priority === priority.id)
+                      .length
+                  }{" "}
+                  tasks
+                </span>
+              </div>
+              <div className="flex flex-col gap-3">
+                {filteredTasks
+                  .filter((f) => f.priority === priority.id)
+                  .map((task, index) => (
                     <KanbanCard
-                      key={id}
-                      id={id}
-                      index={paginatedFeatures.findIndex((f) => f.id === id)}
-                      parent="tasks"
-                      name={name}
-                      priority={priority}
-                      desc={desc}
-                      startAt={startAt}
-                      endAt={endAt}
-                      status={status}
-                      progress={progress}
-                      onProgressChange={updateFeatureProgress}
-                    />
-                  )
-                )
-              )}
-            </KanbanCards>
-          </SortableContext>
-        </KanbanBoard>
+                      key={task.id}
+                      {...task}
+                      index={index}
+                      parent={priority.id}
+                      onToggleComplete={(id) => {
+                        const updatedTask = {
+                          ...task,
+                          isCompleted: !task.isCompleted,
+                        };
+                        updateTask(updatedTask);
+                      }}
+                    >
+                      {/* Project Badge */}
+                      {task.project && (
+                        <div className="mt-2">
+                          <span
+                            className={cn(
+                              "inline-block bg-gray-100 rounded-full px-3 py-1 text-xs font-semibold",
+                              task.isCompleted
+                                ? "text-gray-500"
+                                : "text-gray-700"
+                            )}
+                          >
+                            {task.project}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Completion Status */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            task.isCompleted ? "bg-green-500" : "bg-yellow-500"
+                          }`}
+                        />
+                        <span
+                          className={cn(
+                            "text-xs",
+                            task.isCompleted
+                              ? "text-green-600"
+                              : "text-yellow-600"
+                          )}
+                        >
+                          {task.isCompleted ? "Completed" : "In Progress"}
+                        </span>
+                      </div>
+                    </KanbanCard>
+                  ))}
+              </div>
+            </KanbanBoard>
+          ))}
+        </div>
       </DndContext>
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setCurrentPage(Math.min(totalPages, currentPage + 1))
-            }
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
+        <div className="flex justify-center mt-4 gap-2">
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i + 1}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`px-3 py-1 rounded ${
+                currentPage === i + 1
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
         </div>
       )}
     </div>

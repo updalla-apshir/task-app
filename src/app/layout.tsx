@@ -5,29 +5,51 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { AuthProvider } from "@/providers/auth-provider";
+import { ReduxProvider } from "@/providers/redux-provider"; // adjust the path
+import { usePathname } from "next/navigation";
+import { TaskProvider } from "@/contexts/TaskContext";
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const noLayoutRoutes = [
+    "/sign-in",
+    "/sign-up",
+    "/forget-password",
+    "/verify-email",
+    "/2fa-auth",
+    "/new-password",
+    "/verify-account",
+  ];
+
+  const shouldUseLayout = !noLayoutRoutes.includes(pathname);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-            storageKey="task-app-theme"
-          >
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
-            <Toaster richColors />
-          </ThemeProvider>
-        </AuthProvider>
+        <ReduxProvider>
+          <AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+              storageKey="task-app-theme"
+            >
+              <TaskProvider>
+                {shouldUseLayout ? (
+                  <LayoutWrapper>{children}</LayoutWrapper>
+                ) : (
+                  children
+                )}
+              </TaskProvider>
+              <Toaster richColors />
+            </ThemeProvider>
+          </AuthProvider>
+        </ReduxProvider>
       </body>
     </html>
   );
