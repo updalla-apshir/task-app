@@ -8,7 +8,11 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   enableTwoFactorAuthentication: boolean;
-} 
+  role: Role;
+}
 
-
- 
+export enum Role {
+  User = "User",
+  Premium = "Premium",
+  Team_Member = "Team_Member",
+}

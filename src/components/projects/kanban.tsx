@@ -7,6 +7,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { ReactNode } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 export type Status = {
   id: string;
@@ -198,22 +199,27 @@ export const KanbanHeader = (props: KanbanHeaderProps) =>
     </div>
   );
 
-export type KanbanProviderProps = {
-  children: ReactNode;
-  onDragEnd: (event: DragEndEvent) => void;
-  className?: string;
-};
+interface KanbanContextType {
+  draggingTaskId: string | null;
+  setDraggingTaskId: (id: string | null) => void;
+}
 
-export const KanbanProvider = ({
-  children,
-  onDragEnd,
-  className,
-}: KanbanProviderProps) => (
-  <DndContext collisionDetection={rectIntersection} onDragEnd={onDragEnd}>
-    <div
-      className={cn("grid w-full auto-cols-fr grid-flow-col gap-4", className)}
-    >
+const KanbanContext = createContext<KanbanContextType | undefined>(undefined);
+
+export function useKanban() {
+  const context = useContext(KanbanContext);
+  if (!context) {
+    throw new Error("useKanban must be used within a KanbanProvider");
+  }
+  return context;
+}
+
+export function KanbanProvider({ children }: { children: React.ReactNode }) {
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+
+  return (
+    <KanbanContext.Provider value={{ draggingTaskId, setDraggingTaskId }}>
       {children}
-    </div>
-  </DndContext>
-);
+    </KanbanContext.Provider>
+  );
+}

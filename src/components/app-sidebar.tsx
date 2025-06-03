@@ -77,8 +77,8 @@ const data = {
       icon: CalendarDays,
     },
     {
-      title: "Teams",
-      url: "/teams",
+      title: "Team",
+      url: "/team",
       icon: Users,
     },
     {

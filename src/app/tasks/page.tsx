@@ -62,7 +62,6 @@ function TasksPageContent() {
     </div>
   );
 }
-
 export default function TasksPage() {
   return (
     <ValueProvider>
@@ -70,3 +69,4 @@ export default function TasksPage() {
     </ValueProvider>
   );
 }
+

@@ -29,6 +29,12 @@ import {
 import { Settings2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { useValue, ValueProvider } from "@/contexts/useContext";
+import { useKanban } from "./kanban";
+import { Project, defaultProjects } from "@/lib/project-data";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { format } from "date-fns";
 
 // Define statuses
 const exampleStatuses: Status[] = [
@@ -79,131 +85,80 @@ const rawFeatures: Feature[] = [
   // Additional features can be added here
 ];
 
-export default function ProjectKanban() {
-  const [features, setFeatures] = useState<Feature[]>(() =>
-    rawFeatures.map((f) => ({
-      ...f,
-      startAt: new Date(f.startAt),
-      endAt: new Date(f.endAt),
-      status: getStatusFromProgress(f.progress),
-    }))
-  );
-
-  const [selectedStatusId, setSelectedStatusId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const tasksPerPage = 10;
-
-  return (
-    <TaskKanbanContent
-      features={features}
-      setFeatures={setFeatures}
-      selectedStatusId={selectedStatusId}
-      setSelectedStatusId={setSelectedStatusId}
-      searchQuery={searchQuery}
-      setSearchQuery={setSearchQuery}
-      currentPage={currentPage}
-      setCurrentPage={setCurrentPage}
-      tasksPerPage={tasksPerPage}
-    />
-  );
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
-function TaskKanbanContent({
-  features,
-  setFeatures,
-  selectedStatusId,
-  setSelectedStatusId,
-  searchQuery,
-  setSearchQuery,
-  currentPage,
-  setCurrentPage,
-  tasksPerPage,
-}: {
-  features: Feature[];
-  setFeatures: React.Dispatch<React.SetStateAction<Feature[]>>;
-  selectedStatusId: string | null;
-  setSelectedStatusId: (id: string | null) => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  currentPage: number;
-  setCurrentPage: (page: number) => void;
-  tasksPerPage: number;
-}) {
+function getProgressColor(progress: number): string {
+  if (progress === 0) return "bg-gray-300";
+  return "bg-blue-600";
+}
+
+const statusColumns = [
+  { id: "not-started", name: "Not Started", color: "#94A3B8" },
+  { id: "in-progress", name: "In Progress", color: "#F59E0B" },
+  { id: "completed", name: "Completed", color: "#10B981" },
+] as const;
+
+type ProjectStatus = "not-started" | "in-progress" | "completed";
+
+export default function ProjectKanban() {
+  const { draggingTaskId, setDraggingTaskId } = useKanban();
+  const [projects, setProjects] = React.useState<Project[]>(defaultProjects);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [selectedStatus, setSelectedStatus] = React.useState<ProjectStatus | null>(null);
   const { value, setValue } = useValue();
 
-  // Enhanced sensors configuration
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Filter features by selected status and search query
-  const filteredFeatures = features
-    .filter((f) => !selectedStatusId || f.status.id === selectedStatusId)
-    .filter((f) =>
-      f.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-    );
-
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredFeatures.length / tasksPerPage);
-  const startIndex = (currentPage - 1) * tasksPerPage;
-  const paginatedFeatures = filteredFeatures.slice(
-    startIndex,
-    startIndex + tasksPerPage
-  );
-
-  // Update features with new status when progress changes
-  const updateFeatureProgress = (featureId: string, newProgress: number) => {
-    setFeatures((prevFeatures) =>
-      prevFeatures.map((feature) =>
-        feature.id === featureId
-          ? {
-              ...feature,
-              progress: newProgress,
-              status: getStatusFromProgress(newProgress),
-            }
-          : feature
-      )
-    );
+  const getFilteredProjects = (status: ProjectStatus | null) => {
+    return projects.filter((project) => {
+      const matchesSearch = !searchQuery || 
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchQuery.toLowerCase() || '');
+      const matchesStatus = !status || project.status === status;
+      return matchesSearch && matchesStatus;
+    });
   };
 
-  // Handles drag end event
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
+  const handleDragStart = (e: React.DragEvent, projectId: string) => {
+    e.dataTransfer.setData("text/plain", projectId);
+    setDraggingTaskId(projectId);
+  };
 
-    if (over && active.id !== over.id) {
-      const oldIndex = paginatedFeatures.findIndex((f) => f.id === active.id);
-      const newIndex = paginatedFeatures.findIndex((f) => f.id === over.id);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newFeatures = [...features];
-        const globalOldIndex = features.findIndex((f) => f.id === active.id);
-        const globalNewIndex = features.findIndex((f) => f.id === over.id);
+  const handleDrop = (e: React.DragEvent, newStatus: ProjectStatus) => {
+    e.preventDefault();
+    const projectId = e.dataTransfer.getData("text/plain");
 
-        const [movedItem] = newFeatures.splice(globalOldIndex, 1);
-        newFeatures.splice(globalNewIndex, 0, movedItem);
+    setProjects((prevProjects) =>
+      prevProjects.map((project) =>
+        project.id === projectId
+          ? { ...project, status: newStatus }
+          : project
+      )
+    );
+    setDraggingTaskId(null);
+  };
 
-        setFeatures(newFeatures);
-      }
-    }
-  }
+  const handleDragEnd = () => {
+    setDraggingTaskId(null);
+  };
 
   return (
-    <div className="p-4 mx-auto">
+    <div className="flex flex-col">
       {/* Search Input */}
       <div className="flex flex-col mb-4 md:flex-row md:items-center justify-between gap-4">
         {/* Search Bar */}
         <div className="w-full md:w-1/3">
           <input
             type="text"
-            placeholder="Search tasks..."
+            placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -216,27 +171,27 @@ function TaskKanbanContent({
           <div className="flex flex-wrap space-x-4 md:space-x-6 border-b border-gray-300 pb-2 md:pb-0 md:border-b-0">
             <button
               className={`px-3 py-1 text-sm font-semibold border-b-2 transition-colors ${
-                selectedStatusId === null
+                selectedStatus === null
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => setSelectedStatusId(null)}
+              onClick={() => setSelectedStatus(null)}
             >
               All
             </button>
-            {exampleStatuses.map(({ id, name, color }) => (
+            {statusColumns.map(({ id, name, color }) => (
               <button
                 key={id}
                 className={`px-3 py-1 text-sm font-semibold border-b-2 transition-colors ${
-                  selectedStatusId === id
+                  selectedStatus === id
                     ? "border-current font-bold"
                     : "border-transparent hover:text-opacity-80"
                 }`}
                 style={{
                   color: color,
-                  borderColor: selectedStatusId === id ? color : "transparent",
+                  borderColor: selectedStatus === id ? color : "transparent",
                 }}
-                onClick={() => setSelectedStatusId(id)}
+                onClick={() => setSelectedStatus(id as ProjectStatus)}
               >
                 {name}
               </button>
@@ -256,94 +211,119 @@ function TaskKanbanContent({
         </div>
       </div>
 
-      {/* Task List with Drag and Drop */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <KanbanBoard id="tasks">
-          <KanbanHeader
-            name={
-              selectedStatusId
-                ? exampleStatuses.find((s) => s.id === selectedStatusId)
-                    ?.name || "Tasks"
-                : "All Tasks"
-            }
-            color={
-              selectedStatusId
-                ? exampleStatuses.find((s) => s.id === selectedStatusId)
-                    ?.color || "#000"
-                : "#000"
-            }
-          />
-          <SortableContext
-            items={paginatedFeatures.map((f) => f.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <KanbanCards>
-              {paginatedFeatures.length === 0 ? (
-                <p className="p-4 text-center text-gray-500">No tasks found.</p>
-              ) : (
-                paginatedFeatures.map(
-                  ({
-                    id,
-                    name,
-                    priority,
-                    desc,
-                    startAt,
-                    endAt,
-                    status,
-                    progress,
-                  }) => (
-                    <KanbanCard
-                      key={id}
-                      id={id}
-                      index={paginatedFeatures.findIndex((f) => f.id === id)}
-                      parent="tasks"
-                      name={name}
-                      priority={priority}
-                      desc={desc}
-                      startAt={startAt}
-                      endAt={endAt}
-                      status={status}
-                      progress={progress}
-                      onProgressChange={updateFeatureProgress}
-                    />
+      <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
+        {statusColumns.map((column) => {
+          const columnProjects = projects.filter(p => {
+            const matchesColumnStatus = p.status === column.id;
+            const matchesSelectedStatus = !selectedStatus || selectedStatus === column.id;
+            return matchesColumnStatus && matchesSelectedStatus;
+          });
+          
+          return (
+            <div
+              key={column.id}
+              className="flex flex-col rounded-lg border bg-card"
+            >
+              <div className="p-3 border-b bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">{column.name}</h3>
+                  <Badge variant="secondary">
+                    {columnProjects.length}
+                  </Badge>
+                </div>
+              </div>
+              <div
+                className="p-2 flex-1 overflow-auto"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, column.id as ProjectStatus)}
+              >
+                {columnProjects
+                  .filter(project => 
+                    !searchQuery || 
+                    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    project.description?.toLowerCase().includes(searchQuery.toLowerCase() || '')
                   )
-                )
-              )}
-            </KanbanCards>
-          </SortableContext>
-        </KanbanBoard>
-      </DndContext>
+                  .map((project) => (
+                    <div
+                      key={project.id}
+                      className="mb-2 p-3 bg-background rounded-md border shadow-sm hover:shadow-md transition-shadow"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, project.id)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        opacity: draggingTaskId === project.id ? 0.5 : 1,
+                      }}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-sm">{project.name}</h4>
+                          <Badge
+                            variant={
+                              project.priority === "high"
+                                ? "destructive"
+                                : project.priority === "medium"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                          >
+                            {project.priority}
+                          </Badge>
+                        </div>
 
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setCurrentPage(Math.min(totalPages, currentPage + 1))
-            }
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+                        <div className="text-sm text-muted-foreground line-clamp-2">
+                          {project.description}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="w-full flex items-center gap-2">
+                            <div className="flex-1 relative h-2 rounded-full bg-gray-300 overflow-hidden">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-blue-600 transition-all"
+                                style={{ width: `${project.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-muted-foreground min-w-[3ch]">
+                              {project.progress}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex -space-x-2">
+                            {project.teamMembers.map((member) => (
+                              <Avatar
+                                key={member.id}
+                                className="h-6 w-6 border-2 border-background"
+                              >
+                                {member.avatar ? (
+                                  <img src={member.avatar} alt={member.name} />
+                                ) : (
+                                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                                    {getInitials(member.name)}
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>
+                              {project.startDate &&
+                                format(project.startDate, "MMM d")}
+                            </span>
+                            <span>→</span>
+                            <span>
+                              {project.endDate && format(project.endDate, "MMM d")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

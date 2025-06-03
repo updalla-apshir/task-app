@@ -1,6 +1,7 @@
 enum Role {
   User
-  Admin
+  Premium
+  Team_Member
 }
 
 enum TaskStatus {
@@ -39,6 +40,7 @@ model User {
   updatedAt                     DateTime  @updatedAt
   assignedTasks                 Task[]    @relation("AssignedTasks")
   createdTasks                  Task[]    @relation("CreatedTasks")
+  projects                      Project[] @relation("UserProjects") // projects owned by this user
 }
 
 model Account {
@@ -114,7 +116,23 @@ model Task {
 }
 
 model Project {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  name  String
-  tasks Task[]
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  status      ProjectStatus @default(Not_started)
+  start_date  DateTime?
+  due_date    DateTime?
+  ownerId     String?       @db.ObjectId
+
+  owner User?  @relation("UserProjects", fields: [ownerId], references: [id])
+  tasks Task[] // One-to-many relation to Task
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ProjectStatus {
+  in_progress
+  Completed
+  Not_started
 }

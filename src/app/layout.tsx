@@ -8,6 +8,7 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { ReduxProvider } from "@/providers/redux-provider"; // adjust the path
 import { usePathname } from "next/navigation";
 import { TaskProvider } from "@/contexts/TaskContext";
+import { Providers } from "@/components/providers";
 
 export default function RootLayout({
   children,
@@ -39,13 +40,15 @@ export default function RootLayout({
               disableTransitionOnChange
               storageKey="task-app-theme"
             >
-              <TaskProvider>
-                {shouldUseLayout ? (
-                  <LayoutWrapper>{children}</LayoutWrapper>
-                ) : (
-                  children
-                )}
-              </TaskProvider>
+              <Providers>
+                <TaskProvider>
+                  {shouldUseLayout ? (
+                    <LayoutWrapper>{children}</LayoutWrapper>
+                  ) : (
+                    children
+                  )}
+                </TaskProvider>
+              </Providers>
               <Toaster richColors />
             </ThemeProvider>
           </AuthProvider>

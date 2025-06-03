@@ -1,5 +1,6 @@
 import React from "react";
 import { Feature } from "./kanban";
+import { cn } from "@/lib/utils";
 
 type ProgressToolbarProps = {
   tasks: Feature[];
@@ -41,10 +42,6 @@ export const ProgressToolbar = ({ tasks }: ProgressToolbarProps) => {
   };
   tasks.forEach((task) => priorityCounts[task.priority]++);
 
-  function cn(arg0: string, arg1: string): string | undefined {
-    throw new Error("Function not implemented.");
-  }
-
   return (
     <div className="mb-6 p-4 bg-white rounded shadow flex flex-col gap-4">
       <h2 className="font-semibold text-lg">Task Progress</h2>
@@ -62,8 +59,8 @@ export const ProgressToolbar = ({ tasks }: ProgressToolbarProps) => {
                   status === "Pending"
                     ? "bg-gray-400"
                     : status === "In Progress"
-                      ? "bg-yellow-400"
-                      : "bg-green-400"
+                    ? "bg-yellow-400"
+                    : "bg-green-400"
                 )}
                 style={{ width: `${getPercent(statusCounts[status])}%` }}
               />
