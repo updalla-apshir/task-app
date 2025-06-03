@@ -8,7 +8,7 @@ import { DataTable } from "@/components/task-form/data-table";
 import { Button } from "@/components/ui/button";
 import { KanbanProvider } from "@/components/task-kanbanView/kanban";
 import TaskKanban from "@/components/task-kanbanView/kanbanView";
-import { useValue, ValueProvider } from "@/contexts/KanbanContext";
+import { useValue, ValueProvider } from "@/contexts/useContext";
 import { TaskForm } from "@/components/Dialogs/taskForm";
 import { columns } from "@/components/task-form/columns";
 import { Task, defaultTasks } from "@/lib/data";

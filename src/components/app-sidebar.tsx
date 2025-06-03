@@ -54,6 +54,12 @@ const data = {
       url: "/",
       icon: LayoutDashboard,
     },
+
+    {
+      title: "Projects",
+      url: "/projects",
+      icon: FolderKanban,
+    },
     {
       title: "Tasks",
       url: "/tasks",
@@ -63,15 +69,6 @@ const data = {
         { title: "Due today", url: "/tasks/today" },
         { title: "Upcoming", url: "/tasks/upcoming" },
         { title: "Completed", url: "/tasks/completed" },
-      ],
-    },
-    {
-      title: "Projects",
-      url: "/projects",
-      icon: FolderKanban,
-      items: [
-        { title: "All Projects", url: "/projects" },
-        { title: "Create Project", url: "/projects/new" },
       ],
     },
     {

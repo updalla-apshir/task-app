@@ -6,7 +6,7 @@ import { Checkbox } from "../ui/checkbox";
 import { Task, priorities, statuses } from "@/lib/data";
 import { DataTableColumnHeader } from "./data-table-column-header";
 import { DataTableRowActions } from "./data-table-row-actions";
-import { format, isValid } from "date-fns";
+import { format, isValid, isToday, isThisWeek, isThisMonth, isBefore, startOfToday } from "date-fns";
 
 export const columns: ColumnDef<Task>[] = [
   {
@@ -143,6 +143,30 @@ export const columns: ColumnDef<Task>[] = [
       }
       
       return <div>{format(date, "MMM d, yyyy")}</div>;
+    },
+    filterFn: (row, id, filterValue: { type: "relative"; value: string }) => {
+      const value = row.getValue(id);
+      if (!value) return false;
+      
+      const taskDate = value instanceof Date ? value : new Date(value as string);
+      if (!isValid(taskDate)) return false;
+
+      const today = startOfToday();
+      
+      switch (filterValue.value) {
+        case "today":
+          return isToday(taskDate);
+        case "this-week":
+          return isThisWeek(taskDate);
+        case "this-month":
+          return isThisMonth(taskDate);
+        case "overdue":
+          return isBefore(taskDate, today);
+        case "all":
+          return true;
+        default:
+          return false;
+      }
     },
   },
   {

@@ -10,8 +10,14 @@ interface TaskContextType {
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
-export function TaskProvider({ children }: { children: React.ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+interface TaskProviderProps {
+  children: React.ReactNode;
+  initialTasks?: Task[];
+  onUpdateTask?: (updatedTask: Task) => void;
+}
+
+export function TaskProvider({ children, initialTasks = defaultTasks, onUpdateTask }: TaskProviderProps) {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
   const updateTask = useCallback((updatedTask: Task) => {
     setTasks((prevTasks) =>
@@ -19,7 +25,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         task.id === updatedTask.id ? updatedTask : task
       )
     );
-  }, []);
+    onUpdateTask?.(updatedTask);
+  }, [onUpdateTask]);
 
   return (
     <TaskContext.Provider value={{ tasks, updateTask }}>

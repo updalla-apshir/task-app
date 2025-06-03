@@ -27,12 +27,11 @@ import { Separator } from "@/components/ui/separator";
 interface DataTableFacetedFilterProps<TData, TValue> {
   column?: Column<TData, TValue>;
   title?: string;
-  options: ReadonlyArray<{
-    readonly label: string;
-    readonly value: string;
-    readonly icon?: React.ComponentType<{ className?: string }>;
-    readonly color?: string;
-  }>;
+  options: {
+    label: string;
+    value: string;
+    icon?: React.ComponentType<{ className?: string }>;
+  }[];
 }
 
 export function DataTableFacetedFilter<TData, TValue>({
@@ -45,12 +44,12 @@ export function DataTableFacetedFilter<TData, TValue>({
     new Set()
   );
 
-  // Update selected values when column filter changes
   React.useEffect(() => {
-    if (column?.getFilterValue()) {
-      setSelectedValues(new Set(column.getFilterValue() as string[]));
-    } else {
+    const filterValue = column?.getFilterValue();
+    if (filterValue === undefined) {
       setSelectedValues(new Set());
+    } else if (Array.isArray(filterValue)) {
+      setSelectedValues(new Set(filterValue));
     }
   }, [column?.getFilterValue()]);
 
@@ -124,7 +123,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                   >
                     <Checkbox checked={isSelected} />
                     {option.icon && (
-                      <option.icon className="h-4 w-4" style={{ color: option.color }} />
+                      <option.icon className="h-4 w-4 text-muted-foreground" />
                     )}
                     <span>{option.label}</span>
                     {facets?.get(option.value) && (

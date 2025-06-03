@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTableViewOptions } from "./data-table-view-options";
 import { DataTableFacetedFilter } from "./data-table-faceted-filter";
+import { DataTableDateFilter } from "./data-table-date-filter";
 import { priorities, statuses } from "@/lib/data";
 
 interface DataTableToolbarProps<TData> {
@@ -19,10 +20,18 @@ export function DataTableToolbar<TData>({
   const isFiltered = table.getState().columnFilters.length > 0;
 
   const handleReset = () => {
+    // Reset all filters
     table.resetColumnFilters();
-    // Force a re-render of the table
+    table.resetGlobalFilter();
+    table.resetSorting();
+    
+    // Reset to first page
     table.setPageIndex(0);
   };
+
+  const statusColumn = table.getColumn("status");
+  const priorityColumn = table.getColumn("priority");
+  const endAtColumn = table.getColumn("endAt");
 
   return (
     <div className="flex items-center justify-between">
@@ -35,18 +44,24 @@ export function DataTableToolbar<TData>({
           }
           className="h-8 w-[150px] lg:w-[250px]"
         />
-        {table.getColumn("status") && (
+        {statusColumn && (
           <DataTableFacetedFilter
-            column={table.getColumn("status")}
+            column={statusColumn}
             title="Status"
-            options={statuses}
+            options={[...statuses]}
           />
         )}
-        {table.getColumn("priority") && (
+        {priorityColumn && (
           <DataTableFacetedFilter
-            column={table.getColumn("priority")}
+            column={priorityColumn}
             title="Priority"
-            options={priorities}
+            options={[...priorities]}
+          />
+        )}
+        {endAtColumn && (
+          <DataTableDateFilter
+            column={endAtColumn}
+            title="Due Date"
           />
         )}
         {isFiltered && (

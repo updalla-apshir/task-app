@@ -28,7 +28,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Settings2 } from "lucide-react";
 import { Button } from "../ui/button";
-import { useValue, ValueProvider } from "@/contexts/KanbanContext";
+import { useValue, ValueProvider } from "@/contexts/useContext";
 
 // Define statuses
 const exampleStatuses: Status[] = [

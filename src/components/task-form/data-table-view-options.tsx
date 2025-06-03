@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Settings2 } from "lucide-react";
-import { useValue } from "@/contexts/KanbanContext";
+import { useValue } from "@/contexts/useContext";
 import { cn } from "@/lib/utils";
 
 interface DataTableViewOptionsProps<TData> {

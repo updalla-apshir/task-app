@@ -9,8 +9,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import { Check, Circle } from "lucide-react";
 import type { Priority } from "@/lib/data";
-import { isValid } from "date-fns";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 
 export type Status = {
   id: string;
@@ -20,13 +19,14 @@ export type Status = {
 
 export type Feature = {
   id: string;
-  name: string;
+  title: string;
   desc?: string;
-  startAt: Date;
-  endAt: Date;
-  status: Status;
+  status: "todo" | "in_progress" | "done";
+  label: string;
   priority: Priority;
-  isCompleted: boolean;
+  dueDate?: Date;
+  completed: boolean;
+  project?: string;
 };
 
 export type KanbanBoardProps = {
@@ -61,6 +61,7 @@ export type KanbanCardProps = {
   status: Status;
   priority: Priority;
   isCompleted: boolean;
+  project?: string;
   index: number;
   parent: string;
   onToggleComplete?: (id: string) => void;

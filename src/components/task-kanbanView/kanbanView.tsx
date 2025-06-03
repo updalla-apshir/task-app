@@ -28,7 +28,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Settings2, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { Button } from "../ui/button";
 import { useTasks } from "@/contexts/TaskContext";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,6 @@ import {
   startOfToday,
   isValid,
 } from "date-fns";
-import { useValue } from "@/contexts/KanbanContext";
 
 // Define priorities with proper typing
 const priorityColumns: Array<{ id: Priority; name: string; color: string }> = [
@@ -53,12 +52,8 @@ const priorityColumns: Array<{ id: Priority; name: string; color: string }> = [
 
 export default function TaskKanban() {
   const { tasks, updateTask } = useTasks();
-  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(
-    null
-  );
-  const [completionFilter, setCompletionFilter] = useState<
-    "all" | "completed" | "incomplete"
-  >("all");
+  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
+  const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "incomplete">("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,10 +96,6 @@ interface TaskKanbanContentProps {
   tasksPerPage: number;
 }
 
-function getDate(date: string | Date): Date {
-  return date instanceof Date ? date : new Date(date);
-}
-
 function TaskKanbanContent({
   tasks,
   updateTask,
@@ -120,7 +111,6 @@ function TaskKanbanContent({
   setCurrentPage,
   tasksPerPage,
 }: TaskKanbanContentProps) {
-  // Enhanced sensors configuration
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -131,9 +121,8 @@ function TaskKanbanContent({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  const { value, setValue } = useValue();
 
-  // Enhanced filtering with date filter
+  // Filter tasks based on criteria
   const filteredTasks = tasks
     .filter((f) => !selectedPriority || f.priority === selectedPriority)
     .filter((f) => {
@@ -142,7 +131,7 @@ function TaskKanbanContent({
     })
     .filter((f) => {
       const today = startOfToday();
-      const endDate = getDate(f.endAt);
+      const endDate = new Date(f.endAt);
 
       if (!isValid(endDate)) return false;
 
@@ -166,15 +155,16 @@ function TaskKanbanContent({
         f.project?.toLowerCase().includes(searchQuery.toLowerCase().trim())
     );
 
-  // Calculate pagination
   const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
   const startIndex = (currentPage - 1) * tasksPerPage;
-  const paginatedTasks = filteredTasks.slice(
-    startIndex,
-    startIndex + tasksPerPage
-  );
+  const paginatedTasks = filteredTasks.slice(startIndex, startIndex + tasksPerPage);
 
-  // Handles drag end event
+  // Group tasks by priority for the current page
+  const tasksByPriority = priorityColumns.reduce((acc, priority) => {
+    acc[priority.id] = paginatedTasks.filter((task) => task.priority === priority.id);
+    return acc;
+  }, {} as Record<Priority, Task[]>);
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
@@ -200,7 +190,7 @@ function TaskKanbanContent({
   }
 
   return (
-    <div className="p-4 mx-auto">
+    <div className="p-4">
       <div className="flex flex-col gap-4 mb-6">
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4">
@@ -216,9 +206,9 @@ function TaskKanbanContent({
           </div>
 
           {/* Priority Filter */}
-          <div className="flex space-x-2 md:space-x-6">
+          <div className="flex space-x-4 md:space-x-6">
             <button
-              className={`px-1 py-1 text-sm font-semibold border-b-2 transition-colors ${
+              className={`px-2 py-1 text-sm font-semibold border-b-2 transition-colors ${
                 selectedPriority === null
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
@@ -230,7 +220,7 @@ function TaskKanbanContent({
             {priorityColumns.map((priority) => (
               <button
                 key={priority.id}
-                className={`px-3 py-1 text-sm font-semibold border-b-2 transition-colors ${
+                className={`px-2 py-1 text-sm font-semibold border-b-2 transition-colors ${
                   selectedPriority === priority.id
                     ? "border-current"
                     : "border-transparent hover:text-opacity-80"
@@ -248,11 +238,13 @@ function TaskKanbanContent({
               </button>
             ))}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn("ml-auto  h-8 ")}
-            onClick={() => setValue("task")}
+
+          {/* List View Button */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => window.location.href = "/tasks"}
+            className="ml-auto"
           >
             <SlidersHorizontal className="mr-2 h-4 w-4" />
             List View
@@ -317,88 +309,129 @@ function TaskKanbanContent({
               <div className="flex items-center justify-between mb-2">
                 <KanbanHeader name={priority.name} color={priority.color} />
                 <span className="text-xs font-medium text-gray-500">
-                  {
-                    filteredTasks.filter((f) => f.priority === priority.id)
-                      .length
-                  }{" "}
-                  tasks
+                  {tasksByPriority[priority.id]?.length || 0} / {filteredTasks.filter(f => f.priority === priority.id).length} tasks
                 </span>
               </div>
               <div className="flex flex-col gap-3">
-                {filteredTasks
-                  .filter((f) => f.priority === priority.id)
-                  .map((task, index) => (
-                    <KanbanCard
-                      key={task.id}
-                      {...task}
-                      index={index}
-                      parent={priority.id}
-                      onToggleComplete={(id) => {
-                        const updatedTask = {
-                          ...task,
-                          isCompleted: !task.isCompleted,
-                        };
-                        updateTask(updatedTask);
-                      }}
-                    >
-                      {/* Project Badge */}
-                      {task.project && (
-                        <div className="mt-2">
-                          <span
-                            className={cn(
-                              "inline-block bg-gray-100 rounded-full px-3 py-1 text-xs font-semibold",
-                              task.isCompleted
-                                ? "text-gray-500"
-                                : "text-gray-700"
-                            )}
-                          >
-                            {task.project}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Completion Status */}
-                      <div className="mt-2 flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            task.isCompleted ? "bg-green-500" : "bg-yellow-500"
-                          }`}
-                        />
+                {tasksByPriority[priority.id]?.map((task, index) => (
+                  <KanbanCard
+                    key={task.id}
+                    {...task}
+                    index={index}
+                    parent={priority.id}
+                    onToggleComplete={(id) => {
+                      const updatedTask = {
+                        ...task,
+                        isCompleted: !task.isCompleted,
+                      };
+                      updateTask(updatedTask);
+                    }}
+                  >
+                    {/* Project Badge */}
+                    {task.project && (
+                      <div className="mt-2">
                         <span
                           className={cn(
-                            "text-xs",
+                            "inline-block bg-gray-100 rounded-full px-3 py-1 text-xs font-semibold",
                             task.isCompleted
-                              ? "text-green-600"
-                              : "text-yellow-600"
+                              ? "text-gray-500"
+                              : "text-gray-700"
                           )}
                         >
-                          {task.isCompleted ? "Completed" : "In Progress"}
+                          {task.project}
                         </span>
                       </div>
-                    </KanbanCard>
-                  ))}
+                    )}
+
+                    {/* Completion Status */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          task.isCompleted ? "bg-green-500" : "bg-yellow-500"
+                        }`}
+                      />
+                      <span
+                        className={cn(
+                          "text-xs",
+                          task.isCompleted
+                            ? "text-green-600"
+                            : "text-yellow-600"
+                        )}
+                      >
+                        {task.isCompleted ? "Completed" : "In Progress"}
+                      </span>
+                    </div>
+                  </KanbanCard>
+                ))}
               </div>
             </KanbanBoard>
           ))}
         </div>
       </DndContext>
 
-      {/* Pagination */}
+      {/* Enhanced Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center mt-4 gap-2">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i + 1}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 rounded ${
-                currentPage === i + 1
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-gray-700"
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
+        <div className="flex items-center justify-center mt-6 gap-4">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className={`px-3 py-2 rounded-lg border ${
+              currentPage === 1
+                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Previous
+          </button>
+
+          <div className="flex items-center gap-2">
+            {Array.from({ length: totalPages }, (_, i) => {
+              const pageNum = i + 1;
+              // Show first page, last page, current page, and pages around current
+              const shouldShow =
+                pageNum === 1 ||
+                pageNum === totalPages ||
+                Math.abs(currentPage - pageNum) <= 1;
+
+              if (!shouldShow) {
+                // Show ellipsis if there's a gap
+                if (pageNum === 2 || pageNum === totalPages - 1) {
+                  return <span key={pageNum} className="text-gray-400">...</span>;
+                }
+                return null;
+              }
+
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-lg border ${
+                    currentPage === pageNum
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-2 rounded-lg border ${
+              currentPage === totalPages
+                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Next
+          </button>
+
+          <div className="text-sm text-gray-500">
+            Page {currentPage} of {totalPages}
+          </div>
         </div>
       )}
     </div>
