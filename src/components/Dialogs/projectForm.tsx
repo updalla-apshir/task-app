@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -18,6 +18,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FormProvider, useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,19 +37,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { AssigneeSelectField } from "@/components/AssigneeSelectField";
+import { AssigneeSelect } from "@/components/AssigneeSelect";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useSession } from "next-auth/react";
 import { Role } from "@/types/user";
 import { useRouter } from "next/navigation";
-import {
-  Select as UISelect,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { createProject } from "../../../actions/project";
+import { ProjectStatus } from "@/types/project";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -51,7 +55,9 @@ const formSchema = z.object({
   endDate: z.date().optional(),
   status: z.enum(["not-started", "in-progress", "completed"]),
   priority: z.enum(["low", "medium", "high"]),
-  assignedTo: z.string().min(1, "Assignment is required"),
+  assignedTo: z
+    .array(z.string())
+    .min(1, "At least one team member must be assigned"),
 });
 
 type ProjectFormValues = z.infer<typeof formSchema>;
@@ -66,32 +72,27 @@ interface TeamMember {
 interface ProjectFormProps {
   open: boolean;
   setOpen: (open: boolean) => void;
-  onSubmit?: (data: ProjectFormValues) => void;
   teamMembers?: TeamMember[];
   currentUserId: string;
+  onSubmit?: (data: ProjectFormValues) => void;
 }
 
 export function ProjectForm({
   open,
   setOpen,
-  onSubmit,
   teamMembers = [],
   currentUserId,
 }: ProjectFormProps) {
   const { data: session } = useSession();
   const router = useRouter();
 
-  console.log("Full session:", session);
-  console.log("User from session:", session?.user);
-  console.log("Role from session:", session?.user?.role);
-  console.log("id from session:", session?.user?.id);
-
   const userRole = session?.user?.role ?? Role.User;
   const isPremiumUser = userRole === Role.Premium;
+  const hasTeamMembers = teamMembers.length > 0;
 
   const handleRedirectToTeam = () => {
-    setOpen(false); // Close the project form
-    router.push("/team"); // Redirect to team page
+    setOpen(false);
+    router.push("/team");
   };
 
   const form = useForm<ProjectFormValues>({
@@ -102,31 +103,56 @@ export function ProjectForm({
       status: "not-started",
       priority: "medium",
       assignedTo: isPremiumUser
-        ? teamMembers.length > 0
-          ? teamMembers[0].id
-          : "_no_members"
-        : currentUserId || "_self",
+        ? hasTeamMembers
+          ? [teamMembers[0].id]
+          : []
+        : [currentUserId],
     },
   });
 
   const [startDateOpen, setStartDateOpen] = React.useState(false);
   const [endDateOpen, setEndDateOpen] = React.useState(false);
 
-  const handleSubmit = (data: ProjectFormValues) => {
-    if (userRole === Role.Premium && teamMembers.length === 0) {
+  const handleSubmit = async (data: ProjectFormValues) => {
+    if (isPremiumUser && !hasTeamMembers) {
       handleRedirectToTeam();
       return;
     }
 
-    if (onSubmit) {
-      onSubmit(data);
+    try {
+      const now = new Date();
+      const projectPayload = {
+        name: data.name,
+        description: data.description ?? null,
+        start_date: data.startDate ?? null,
+        due_date: data.endDate ?? null,
+        status: data.status.replace("-", "_") as "not_started" | "in_progress" | "completed",
+        createdAt: now,
+        updatedAt: now,
+        ownerId: currentUserId,
+        ...(data.assignedTo.length > 0 ? { teamId: data.assignedTo[0] } : {}),
+        tasks: [],
+        team: null,
+        owner: null
+      };
+
+      const res = await createProject(projectPayload);
+      if (res.success) {
+        toast.success("Project created successfully");
+        router.refresh();
+        setOpen(false);
+      } else {
+        console.error('Project creation failed:', res.error);
+        toast.error(Array.isArray(res.error) ? res.error[0]?.message : res.error || "Failed to create project");
+      }
+    } catch (error) {
+      console.error('Project creation error:', error);
+      toast.error("An unexpected error occurred");
     }
-    setOpen(false);
   };
 
   // Check if form submission should be disabled
-  const isSubmitDisabled =
-    userRole === Role.Premium && teamMembers.length === 0;
+  const isSubmitDisabled = isPremiumUser && !hasTeamMembers;
 
   return (
     <Dialog open={open} onOpenChange={setOpen} modal={true}>
@@ -137,10 +163,30 @@ export function ProjectForm({
               Create New Project
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Fill out the details of the project you want to create.
+              {isPremiumUser
+                ? "As a premium user, you can assign projects to team members."
+                : "Fill out the details of the project you want to create."}
             </DialogDescription>
           </DialogHeader>
         </div>
+
+        {isPremiumUser && !hasTeamMembers && (
+          <Alert className="mx-6 mt-6">
+            <Users className="h-4 w-4" />
+            <AlertTitle>Team Members Required</AlertTitle>
+            <AlertDescription>
+              As a premium user, you need to add team members before creating a
+              project.{" "}
+              <Button
+                variant="link"
+                className="p-0 h-auto font-semibold"
+                onClick={handleRedirectToTeam}
+              >
+                Add team members now
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div
           className="p-6 space-y-6 overflow-y-auto"
@@ -160,7 +206,11 @@ export function ProjectForm({
                     <FormItem>
                       <FormLabel>Project Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter project name" {...field} />
+                        <Input
+                          placeholder="Enter project name"
+                          {...field}
+                          disabled={isSubmitDisabled}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -174,9 +224,10 @@ export function ProjectForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Priority</FormLabel>
-                      <UISelect
+                      <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        disabled={isSubmitDisabled}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -188,7 +239,7 @@ export function ProjectForm({
                           <SelectItem value="medium">Medium</SelectItem>
                           <SelectItem value="high">High</SelectItem>
                         </SelectContent>
-                      </UISelect>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -214,6 +265,7 @@ export function ProjectForm({
                                   "w-full pl-3 text-left font-normal",
                                   !field.value && "text-muted-foreground"
                                 )}
+                                disabled={isSubmitDisabled}
                               >
                                 {field.value ? (
                                   format(field.value, "PPP")
@@ -274,6 +326,7 @@ export function ProjectForm({
                                   "w-full pl-3 text-left font-normal",
                                   !field.value && "text-muted-foreground"
                                 )}
+                                disabled={isSubmitDisabled}
                               >
                                 {field.value ? (
                                   format(field.value, "PPP")
@@ -320,20 +373,21 @@ export function ProjectForm({
                   name="assignedTo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="required">Assign To</FormLabel>
+                      <FormLabel>Assign To</FormLabel>
                       <FormControl>
-                        <AssigneeSelectField
+                        <AssigneeSelect
                           value={field.value}
                           onChange={field.onChange}
-                          disabled={isSubmitDisabled}
+                          teamMembers={teamMembers}
+                          currentUserId={currentUserId}
+                          onRedirectToTeam={handleRedirectToTeam}
                         />
                       </FormControl>
-                      {userRole === Role.Premium &&
-                        teamMembers.length === 0 && (
-                          <p className="text-sm text-muted-foreground">
-                            Add team members to start assigning tasks
-                          </p>
-                        )}
+                      {isPremiumUser && !hasTeamMembers && (
+                        <p className="text-sm text-muted-foreground">
+                          Add team members to start assigning tasks
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -352,6 +406,7 @@ export function ProjectForm({
                         placeholder="Enter project description"
                         className="min-h-[100px]"
                         {...field}
+                        disabled={isSubmitDisabled}
                       />
                     </FormControl>
                     <FormMessage />
@@ -367,9 +422,13 @@ export function ProjectForm({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitDisabled}>
-                  Create Project
-                </Button>
+                {isPremiumUser && !hasTeamMembers ? (
+                  <Button type="button" onClick={handleRedirectToTeam}>
+                    Add Team Members
+                  </Button>
+                ) : (
+                  <Button type="submit">Create Project</Button>
+                )}
               </div>
             </form>
           </Form>

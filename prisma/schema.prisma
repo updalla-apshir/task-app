@@ -16,6 +16,17 @@ enum TaskPriority {
   high
 }
 
+enum ProjectStatus {
+  not_started
+  in_progress
+  completed
+}
+
+enum TeamRole {
+  owner
+  member
+}
+
 datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
@@ -26,21 +37,89 @@ generator client {
 }
 
 model User {
-  id                            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name                          String?
-  email                         String?   @unique
-  emailVerified                 Boolean?
-  image                         String?
-  accounts                      Account[]
-  sessions                      Session[]
-  password                      String?
-  role                          Role      @default(User)
-  enableTwoFactorAuthentication Boolean?  @default(false)
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
-  assignedTasks                 Task[]    @relation("AssignedTasks")
-  createdTasks                  Task[]    @relation("CreatedTasks")
-  projects                      Project[] @relation("UserProjects") // projects owned by this user
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?      @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          Role         @default(User)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  teams         TeamMember[]
+  ownedProjects Project[]    @relation("ProjectOwner")
+  assignedTasks Task[]       @relation("AssignedTasks")
+  createdTasks  Task[]       @relation("CreatedTasks")
+}
+
+model Team {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  members     TeamMember[]
+  projects    Project[]
+}
+
+model TeamMember {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  role      TeamRole @default(member)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+model Project {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  start_date  DateTime?
+  due_date    DateTime?
+  status      ProjectStatus @default(not_started)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  ownerId     String        @db.ObjectId
+  team        Team?         @relation(fields: [teamId], references: [id])
+  teamId      String?       @db.ObjectId
+  tasks       Task[]
+
+  @@index([ownerId])
+  @@index([teamId])
+}
+
+model Task {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  status      TaskStatus   @default(pending)
+  priority    TaskPriority @default(medium)
+  due_date    DateTime?
+  start_date  DateTime?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  assigned_to String?      @db.ObjectId
+  created_by  String       @db.ObjectId
+  project_id  String       @db.ObjectId
+  is_archived Boolean      @default(false)
+
+  assignedTo User?   @relation("AssignedTasks", fields: [assigned_to], references: [id])
+  createdBy  User    @relation("CreatedTasks", fields: [created_by], references: [id])
+  project    Project @relation(fields: [project_id], references: [id])
+
+  @@index([assigned_to])
+  @@index([created_by])
+  @@index([project_id])
 }
 
 model Account {
@@ -94,45 +173,4 @@ model OTP {
 
   @@unique([email, code])
   @@index([email])
-}
-
-model Task {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  description String?
-  status      String    @default("pending") // Or make it enum if status is predefined
-  priority    String    @default("medium") // Same here, can be enum
-  due_date    DateTime?
-  start_date  DateTime?
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-  assigned_to String?   @db.ObjectId
-  created_by  String    @db.ObjectId
-  project_id  String    @db.ObjectId
-  is_archived Boolean   @default(false)
-  assignedTo  User?     @relation("AssignedTasks", fields: [assigned_to], references: [id])
-  createdBy   User      @relation("CreatedTasks", fields: [created_by], references: [id])
-  project     Project   @relation(fields: [project_id], references: [id])
-}
-
-model Project {
-  id          String        @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  description String?
-  status      ProjectStatus @default(Not_started)
-  start_date  DateTime?
-  due_date    DateTime?
-  ownerId     String?       @db.ObjectId
-
-  owner User?  @relation("UserProjects", fields: [ownerId], references: [id])
-  tasks Task[] // One-to-many relation to Task
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum ProjectStatus {
-  in_progress
-  Completed
-  Not_started
 }

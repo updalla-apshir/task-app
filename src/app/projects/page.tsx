@@ -14,16 +14,48 @@ import ProjectKanban from "@/components/projects/kanbanView";
 import { DataTable } from "@/components/project-form/data-table";
 import { Feature, Status } from "@/components/projects/kanban";
 import { useSession } from "next-auth/react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getTeam } from "../../../actions/team";
+import { createProject } from "../../../actions/project";
+import * as z from "zod";
+import { useRouter } from "next/navigation";
 
-type ProjectFormData = {
+interface TeamMember {
+  id: string;
+  role: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+    role: string;
+  };
+}
+
+interface Team {
+  id: string;
   name: string;
-  description?: string;
-  startDate?: Date;
-  endDate?: Date;
-  status: "not-started" | "in-progress" | "completed";
-  priority: "low" | "medium" | "high";
-  teamSize?: string;
-};
+  members: TeamMember[];
+  projects: any[];
+}
+
+interface EmptyTeam {
+  members: TeamMember[];
+}
+
+const formSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().optional(),
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  status: z.enum(["not-started", "in-progress", "completed"]),
+  priority: z.enum(["low", "medium", "high"]),
+  assignedTo: z
+    .array(z.string())
+    .min(1, "At least one team member must be assigned"),
+});
+
+type ProjectFormValues = z.infer<typeof formSchema>;
 
 const statusMap: Record<Project["status"], Status> = {
   "not-started": { id: "1", name: "Planned", color: "#94A3B8" },
@@ -40,31 +72,51 @@ const priorityMap: Record<Project["priority"], Feature["priority"]> = {
 function ProjectsPageContent() {
   const { value, setValue } = useValue();
   const [open, setOpen] = React.useState(false);
-  const [projects, setProjects] = React.useState<Project[]>(defaultProjects);
 
-  const session = useSession();
+  const queryClient = useQueryClient();
 
-  const userId = session.data?.user?.id;
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: defaultProjects,
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: (updatedProject: Project) => {
+      // TODO: Implement the API call to update the project
+      return Promise.resolve(updatedProject);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
 
   const handleProjectUpdate = (updatedProject: Project) => {
-    setProjects((currentProjects) =>
-      currentProjects.map((project) =>
-        project.id === updatedProject.id ? updatedProject : project
-      )
-    );
+    updateProjectMutation.mutate(updatedProject);
   };
 
-  const handleProjectCreate = (formData: ProjectFormData) => {
-    const project: Project = {
-      ...formData,
-      id: Math.random().toString(36).substr(2, 9),
-      progress: 0,
-      teamMembers: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setProjects((currentProjects) => [...currentProjects, project]);
-  };
+  const session = useSession();
+  const userId = session.data?.user?.id;
+  const router = useRouter();
+
+  // Fetch team data
+  const { data: teamData } = useQuery<Team | EmptyTeam>({
+    queryKey: ["team"],
+    queryFn: async () => {
+      const result = await getTeam();
+      return result as Team | EmptyTeam;
+    },
+  });
+
+  // Transform team members data for the ProjectForm
+  const teamMembers = React.useMemo(() => {
+    if (!teamData?.members) return [];
+    return teamData.members.map((member: TeamMember) => ({
+      id: member.user.id,
+      name: member.user.name,
+      email: member.user.email,
+      image: member.user.image,
+    }));
+  }, [teamData]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -84,8 +136,8 @@ function ProjectsPageContent() {
               <ProjectForm
                 open={open}
                 setOpen={setOpen}
-                onSubmit={handleProjectCreate}
                 currentUserId={userId ?? ""}
+                teamMembers={teamMembers}
               />
             </div>
           </div>

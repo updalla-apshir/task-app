@@ -1,27 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, UserPlus, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { X, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Role } from "@/types/user";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Role } from "@/types/user";
-import { useSession } from "next-auth/react";
-import { Badge } from "@/components/ui/badge";
-import { useRouter } from "next/navigation";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface TeamMember {
   id: string;
@@ -31,54 +24,40 @@ interface TeamMember {
 }
 
 interface AssigneeSelectProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: string[];
+  onChange: (value: string[]) => void;
   teamMembers?: TeamMember[];
   currentUserId: string;
   onRedirectToTeam?: () => void;
-  disabled?: boolean;
 }
 
 export function AssigneeSelect({
-  value,
+  value = [],
   onChange,
   teamMembers = [],
   currentUserId,
   onRedirectToTeam,
-  disabled = false,
 }: AssigneeSelectProps) {
   const { data: session } = useSession();
   const [open, setOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const commandRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const userRole = session?.user?.role ?? Role.User;
   const isPremiumUser = userRole === Role.Premium;
 
-  // Handle keyboard navigation
-  React.useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((open) => !open);
-      }
-    };
-
-    document.addEventListener("keydown", down);
-    return () => document.removeEventListener("keydown", down);
-  }, []);
-
   // For regular users, show a simple "Assigned to You" badge with improved styling
   if (!isPremiumUser) {
     return (
-      <div 
+      <div
         className="flex items-center gap-2 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         role="status"
         aria-label="Task assigned to you"
       >
         <Avatar className="h-6 w-6 transition-transform hover:scale-105">
-          <AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? "User avatar"} />
+          <AvatarImage
+            src={session?.user?.image ?? ""}
+            alt={session?.user?.name ?? "User avatar"}
+          />
           <AvatarFallback>
             {session?.user?.name?.[0]?.toUpperCase() ?? "U"}
           </AvatarFallback>
@@ -106,88 +85,63 @@ export function AssigneeSelect({
     );
   }
 
-  const selectedMember = teamMembers.find((member) => member.id === value);
-  const filteredMembers = teamMembers.filter((member) => 
-    member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  const selectedMembers = teamMembers.filter((member) =>
+    value.includes(member.id)
   );
 
+  const handleToggleMember = (memberId: string) => {
+    const newValue = value.includes(memberId)
+      ? value.filter((id) => id !== memberId)
+      : [...value, memberId];
+    onChange(newValue);
+  };
+
+  const handleRemoveMember = (memberId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange(value.filter((id) => id !== memberId));
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label="Select team member"
-          className={cn(
-            "w-full justify-between transition-all duration-200",
-            "hover:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            !value && "text-muted-foreground"
-          )}
-          disabled={disabled}
-        >
-          {selectedMember ? (
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6 transition-transform hover:scale-105">
-                <AvatarImage src={selectedMember.image ?? ""} alt={selectedMember.name ?? "Member avatar"} />
-                <AvatarFallback>
-                  {selectedMember.name?.[0]?.toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
-              <span>{selectedMember.name}</span>
-              {selectedMember.id === currentUserId && (
-                <Badge variant="secondary" className="ml-2">You</Badge>
-              )}
-            </div>
-          ) : (
+    <div className="flex flex-col gap-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            aria-label="Select team members"
+            className="w-full justify-between"
+            onClick={() => setOpen(!open)}
+          >
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>Select team member</span>
+              <span>
+                {selectedMembers.length === 0
+                  ? "Select team members"
+                  : `${selectedMembers.length} member${selectedMembers.length === 1 ? "" : "s"} selected`}
+              </span>
             </div>
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 transition-transform duration-200" 
-            style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-          />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent 
-        className="w-[300px] p-0" 
-        align="start"
-        sideOffset={5}
-      >
-        <Command 
-          ref={commandRef}
-          className="rounded-lg border shadow-md"
-        >
-          <CommandInput
-            placeholder="Search team member..."
-            className="h-9"
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList>
-            <CommandEmpty className="p-6 text-center">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-sm text-muted-foreground">
-                No team member found
-              </p>
-            </CommandEmpty>
-            <CommandGroup heading="Team Members">
-              {filteredMembers.map((member) => (
-                <CommandItem
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[300px] p-0" align="start">
+          <ScrollArea className="h-[300px] p-4">
+            <div className="space-y-4">
+              {teamMembers.map((member) => (
+                <div
                   key={member.id}
-                  value={member.id}
-                  onSelect={() => {
-                    onChange(member.id);
-                    setOpen(false);
-                    setSearchQuery("");
-                  }}
-                  className="text-sm transition-colors hover:bg-accent"
+                  className="flex items-center space-x-3 cursor-pointer hover:bg-accent rounded-lg p-2"
+                  onClick={() => handleToggleMember(member.id)}
                 >
+                  <Checkbox
+                    checked={value.includes(member.id)}
+                    onCheckedChange={() => handleToggleMember(member.id)}
+                  />
                   <div className="flex items-center gap-2 flex-1">
-                    <Avatar className="h-6 w-6 transition-transform hover:scale-105">
-                      <AvatarImage src={member.image ?? ""} alt={member.name ?? "Member avatar"} />
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage
+                        src={member.image ?? ""}
+                        alt={member.name ?? "Member avatar"}
+                      />
                       <AvatarFallback>
                         {member.name?.[0]?.toUpperCase() ?? "U"}
                       </AvatarFallback>
@@ -195,25 +149,50 @@ export function AssigneeSelect({
                     <div className="flex flex-col">
                       <span>{member.name}</span>
                       {member.email && (
-                        <span className="text-xs text-muted-foreground">{member.email}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {member.email}
+                        </span>
                       )}
                     </div>
                   </div>
-                  {member.id === currentUserId && (
-                    <Badge variant="secondary" className="ml-2">You</Badge>
-                  )}
-                  <Check
-                    className={cn(
-                      "ml-2 h-4 w-4 transition-opacity",
-                      value === member.id ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                </CommandItem>
+                </div>
               ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+
+      {/* Selected members display */}
+      {selectedMembers.length > 0 && (
+        <div className="flex flex-wrap gap-2 p-2 border rounded-md">
+          {selectedMembers.map((member) => (
+            <Badge
+              key={member.id}
+              variant="secondary"
+              className="flex items-center gap-1 py-1 px-2"
+            >
+              <Avatar className="h-4 w-4">
+                <AvatarImage
+                  src={member.image ?? ""}
+                  alt={member.name ?? "Member avatar"}
+                />
+                <AvatarFallback>
+                  {member.name?.[0]?.toUpperCase() ?? "U"}
+                </AvatarFallback>
+              </Avatar>
+              <span>{member.name}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 p-0 hover:bg-transparent"
+                onClick={(e) => handleRemoveMember(member.id, e)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Define statuses
 const exampleStatuses: Status[] = [
@@ -108,19 +109,37 @@ type ProjectStatus = "not-started" | "in-progress" | "completed";
 
 export default function ProjectKanban() {
   const { draggingTaskId, setDraggingTaskId } = useKanban();
-  const [projects, setProjects] = React.useState<Project[]>(defaultProjects);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedStatus, setSelectedStatus] = React.useState<ProjectStatus | null>(null);
+  const [selectedStatus, setSelectedStatus] =
+    React.useState<ProjectStatus | null>(null);
   const { value, setValue } = useValue();
 
+  const queryClient = useQueryClient();
+
+  const {
+    data: projects = [],
+    isLoading,
+    error,
+  } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: defaultProjects,
+  });
+
+  console.log("Kanban Projects:", { projects, isLoading, error });
+
   const getFilteredProjects = (status: ProjectStatus | null) => {
-    return projects.filter((project) => {
-      const matchesSearch = !searchQuery || 
+    const filtered = projects.filter((project) => {
+      const matchesSearch =
+        !searchQuery ||
         project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.description?.toLowerCase().includes(searchQuery.toLowerCase() || '');
+        project.description
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase() || "");
       const matchesStatus = !status || project.status === status;
       return matchesSearch && matchesStatus;
     });
+    console.log("Filtered Projects:", { status, filtered });
+    return filtered;
   };
 
   const handleDragStart = (e: React.DragEvent, projectId: string) => {
@@ -136,12 +155,19 @@ export default function ProjectKanban() {
     e.preventDefault();
     const projectId = e.dataTransfer.getData("text/plain");
 
-    setProjects((prevProjects) =>
-      prevProjects.map((project) =>
-        project.id === projectId
-          ? { ...project, status: newStatus }
-          : project
-      )
+    // Update the project status in the query
+    queryClient.setQueryData(
+      ["projects"],
+      (oldProjects: Project[] | undefined) => {
+        if (oldProjects) {
+          return oldProjects.map((project) =>
+            project.id === projectId
+              ? { ...project, status: newStatus }
+              : project
+          );
+        }
+        return oldProjects;
+      }
     );
     setDraggingTaskId(null);
   };
@@ -213,12 +239,16 @@ export default function ProjectKanban() {
 
       <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
         {statusColumns.map((column) => {
-          const columnProjects = projects.filter(p => {
-            const matchesColumnStatus = p.status === column.id;
-            const matchesSelectedStatus = !selectedStatus || selectedStatus === column.id;
-            return matchesColumnStatus && matchesSelectedStatus;
+          const columnProjects = projects.filter((p) => {
+            const matchesSearch =
+              !searchQuery ||
+              p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              p.description
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase() || "");
+            return p.status === column.id && matchesSearch;
           });
-          
+
           return (
             <div
               key={column.id}
@@ -227,9 +257,7 @@ export default function ProjectKanban() {
               <div className="p-3 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">{column.name}</h3>
-                  <Badge variant="secondary">
-                    {columnProjects.length}
-                  </Badge>
+                  <Badge variant="secondary">{columnProjects.length}</Badge>
                 </div>
               </div>
               <div
@@ -238,10 +266,15 @@ export default function ProjectKanban() {
                 onDrop={(e) => handleDrop(e, column.id as ProjectStatus)}
               >
                 {columnProjects
-                  .filter(project => 
-                    !searchQuery || 
-                    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    project.description?.toLowerCase().includes(searchQuery.toLowerCase() || '')
+                  .filter(
+                    (project) =>
+                      !searchQuery ||
+                      project.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase()) ||
+                      project.description
+                        ?.toLowerCase()
+                        .includes(searchQuery.toLowerCase() || "")
                   )
                   .map((project) => (
                     <div
@@ -256,7 +289,9 @@ export default function ProjectKanban() {
                     >
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-sm">{project.name}</h4>
+                          <h4 className="font-medium text-sm">
+                            {project.name}
+                          </h4>
                           <Badge
                             variant={
                               project.priority === "high"
@@ -312,7 +347,8 @@ export default function ProjectKanban() {
                             </span>
                             <span>→</span>
                             <span>
-                              {project.endDate && format(project.endDate, "MMM d")}
+                              {project.endDate &&
+                                format(project.endDate, "MMM d")}
                             </span>
                           </div>
                         </div>

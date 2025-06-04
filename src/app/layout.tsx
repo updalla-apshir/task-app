@@ -8,7 +8,7 @@ import { AuthProvider } from "@/providers/auth-provider";
 import { ReduxProvider } from "@/providers/redux-provider"; // adjust the path
 import { usePathname } from "next/navigation";
 import { TaskProvider } from "@/contexts/TaskContext";
-import { Providers } from "@/components/providers";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 export default function RootLayout({
   children,
@@ -27,20 +27,21 @@ export default function RootLayout({
   ];
 
   const shouldUseLayout = !noLayoutRoutes.includes(pathname);
+  const queryClient = new QueryClient();
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ReduxProvider>
-          <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-              storageKey="task-app-theme"
-            >
-              <Providers>
+        <QueryClientProvider client={queryClient}>
+          <ReduxProvider>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+                storageKey="task-app-theme"
+              >
                 <TaskProvider>
                   {shouldUseLayout ? (
                     <LayoutWrapper>{children}</LayoutWrapper>
@@ -48,11 +49,11 @@ export default function RootLayout({
                     children
                   )}
                 </TaskProvider>
-              </Providers>
-              <Toaster richColors />
-            </ThemeProvider>
-          </AuthProvider>
-        </ReduxProvider>
+                <Toaster richColors />
+              </ThemeProvider>
+            </AuthProvider>
+          </ReduxProvider>
+        </QueryClientProvider>
       </body>
     </html>
   );

@@ -1,3 +1,5 @@
+import { getProjects } from "../../actions/project";
+
 export type TeamMember = {
   id: string;
   name: string;
@@ -48,47 +50,33 @@ export const defaultTeamMembers: TeamMember[] = [
   },
 ];
 
-export const defaultProjects: Project[] = [
-  {
-    id: "1",
-    name: "Website Redesign",
-    description: "Complete overhaul of company website with modern design",
-    startDate: new Date("2024-03-01"),
-    endDate: new Date("2024-06-30"),
-    status: "in-progress",
-    priority: "high",
-    teamSize: "5",
-    progress: 45,
-    teamMembers: [defaultTeamMembers[0], defaultTeamMembers[1], defaultTeamMembers[2]],
-    createdAt: new Date("2024-02-15"),
-    updatedAt: new Date("2024-02-15"),
-  },
-  {
-    id: "2",
-    name: "Mobile App Development",
-    description: "Develop a new mobile app for customer engagement",
-    startDate: new Date("2024-04-01"),
-    endDate: new Date("2024-09-30"),
-    status: "not-started",
-    priority: "medium",
-    teamSize: "8",
-    progress: 0,
-    teamMembers: [defaultTeamMembers[1], defaultTeamMembers[3], defaultTeamMembers[4]],
-    createdAt: new Date("2024-02-20"),
-    updatedAt: new Date("2024-02-20"),
-  },
-  {
-    id: "3",
-    name: "Data Migration",
-    description: "Migrate legacy data to new cloud platform",
-    startDate: new Date("2024-02-01"),
-    endDate: new Date("2024-03-15"),
-    status: "completed",
-    priority: "high",
-    teamSize: "3",
-    progress: 100,
-    teamMembers: [defaultTeamMembers[0], defaultTeamMembers[4]],
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-03-15"),
-  },
-]; 
+export const defaultProjects = async (): Promise<Project[]> => {
+  const data = await getProjects();
+  return data.map(project => {
+    // Map the status to one of the allowed values
+    let mappedStatus: "not-started" | "in-progress" | "completed";
+    switch (project.status?.toLowerCase()) {
+      case "in progress":
+      case "in-progress":
+        mappedStatus = "in-progress";
+        break;
+      case "completed":
+      case "done":
+        mappedStatus = "completed";
+        break;
+      default:
+        mappedStatus = "not-started";
+    }
+
+    return {
+      ...project,
+      description: project.description || undefined,
+      priority: "medium",
+      progress: 0,
+      teamMembers: [],
+      startDate: project.start_date || undefined,
+      endDate: project.due_date || undefined,
+      status: mappedStatus
+    };
+  });
+};
