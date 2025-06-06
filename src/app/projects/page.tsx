@@ -19,6 +19,8 @@ import { getTeam } from "../../../actions/team";
 import { createProject } from "../../../actions/project";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
+import { projectSchema } from "../../schemas/shema";
+import { toast } from "sonner";
 
 interface TeamMember {
   id: string;
@@ -43,30 +45,18 @@ interface EmptyTeam {
   members: TeamMember[];
 }
 
-const formSchema = z.object({
-  name: z.string().min(1, "Project name is required"),
-  description: z.string().optional(),
-  startDate: z.date().optional(),
-  endDate: z.date().optional(),
-  status: z.enum(["not-started", "in-progress", "completed"]),
-  priority: z.enum(["low", "medium", "high"]),
-  assignedTo: z
-    .array(z.string())
-    .min(1, "At least one team member must be assigned"),
-});
-
-type ProjectFormValues = z.infer<typeof formSchema>;
+type ProjectFormValues = z.infer<typeof projectSchema>;
 
 const statusMap: Record<Project["status"], Status> = {
-  "not-started": { id: "1", name: "Planned", color: "#94A3B8" },
-  "in-progress": { id: "2", name: "In Progress", color: "#F59E0B" },
+  not_started: { id: "1", name: "Planned", color: "#94A3B8" },
+  in_progress: { id: "2", name: "In Progress", color: "#F59E0B" },
   completed: { id: "3", name: "Done", color: "#10B981" },
 };
 
 const priorityMap: Record<Project["priority"], Feature["priority"]> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
+  Low: "Low",
+  Medium: "Medium",
+  High: "High",
 };
 
 function ProjectsPageContent() {
@@ -74,29 +64,40 @@ function ProjectsPageContent() {
   const [open, setOpen] = React.useState(false);
 
   const queryClient = useQueryClient();
-
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: defaultProjects,
-  });
-
-  const updateProjectMutation = useMutation({
-    mutationFn: (updatedProject: Project) => {
-      // TODO: Implement the API call to update the project
-      return Promise.resolve(updatedProject);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-    },
-  });
-
-  const handleProjectUpdate = (updatedProject: Project) => {
-    updateProjectMutation.mutate(updatedProject);
-  };
-
   const session = useSession();
   const userId = session.data?.user?.id;
   const router = useRouter();
+
+  // Fetch projects query
+  const {
+    data: projects = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: defaultProjects,
+    retry: 2,
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false,
+  });
+
+  console.log("Projects data:", projects);
+
+  // Create project mutation
+  const projectMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: () => {
+      // Invalidate and refetch projects query
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Project created successfully");
+    },
+    onError: (error) => {
+      console.error("Project creation error:", error);
+      toast.error("Failed to create project");
+    }
+  });
 
   // Fetch team data
   const { data: teamData } = useQuery<Team | EmptyTeam>({
@@ -118,8 +119,26 @@ function ProjectsPageContent() {
     }));
   }, [teamData]);
 
+  // Prefetch projects data
+  React.useEffect(() => {
+    // Prefetch projects data
+    queryClient.prefetchQuery({
+      queryKey: ["projects"],
+      queryFn: defaultProjects,
+    });
+  }, [queryClient]);
+
+  // Handle project form submission
+  const handleProjectSubmit = async (status: string) => {
+    if (status === "success") {
+      // The form component already called createProject
+      // Just invalidate the cache to trigger a refetch
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col">
       <main className="flex-1 flex flex-col min-h-0 w-full max-w-full">
         <div className="p-4 flex-none">
           <div className="flex justify-between items-center">
@@ -138,13 +157,29 @@ function ProjectsPageContent() {
                 setOpen={setOpen}
                 currentUserId={userId ?? ""}
                 teamMembers={teamMembers}
+                onSubmit={handleProjectSubmit}
               />
             </div>
           </div>
         </div>
 
         <div className="flex-1 min-h-0 p-4 w-full">
-          {value === "kanban" ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <p>Loading projects...</p>
+            </div>
+          ) : isError ? (
+            <div className="flex items-center justify-center h-full">
+              <p>Error loading projects. Please try again.</p>
+            </div>
+          ) : Array.isArray(projects) && projects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <p className="text-lg text-muted-foreground">No projects found</p>
+              <Button onClick={() => setOpen(true)}>
+                Create your first project
+              </Button>
+            </div>
+          ) : value === "kanban" ? (
             <KanbanProvider>
               <ProjectKanban />
             </KanbanProvider>
@@ -152,8 +187,7 @@ function ProjectsPageContent() {
             <div className="h-full w-full">
               <DataTable
                 columns={columns}
-                data={projects || []}
-                onProjectUpdate={handleProjectUpdate}
+                data={Array.isArray(projects) ? projects : []}
               />
             </div>
           )}

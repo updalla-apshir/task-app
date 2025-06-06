@@ -35,8 +35,8 @@ export function DataTableToolbar<TData>({
             column={table.getColumn("status")}
             title="Status"
             options={[
-              { value: "not-started", label: "Not Started" },
-              { value: "in-progress", label: "In Progress" },
+              { value: "not_started", label: "Not Started" },
+              { value: "in_progress", label: "In Progress" },
               { value: "completed", label: "Completed" },
             ]}
           />
@@ -46,9 +46,9 @@ export function DataTableToolbar<TData>({
             column={table.getColumn("priority")}
             title="Priority"
             options={[
-              { value: "low", label: "Low" },
-              { value: "medium", label: "Medium" },
-              { value: "high", label: "High" },
+              { value: "Low", label: "Low" },
+              { value: "Medium", label: "Medium" },
+              { value: "High", label: "High" },
             ]}
           />
         )}
@@ -66,4 +66,4 @@ export function DataTableToolbar<TData>({
       <DataTableViewOptions table={table} />
     </div>
   );
-} 
+}

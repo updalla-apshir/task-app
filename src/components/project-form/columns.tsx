@@ -12,9 +12,9 @@ import { Progress } from "@/components/ui/progress";
 
 function getInitials(name: string): string {
   return name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
     .toUpperCase();
 }
 
@@ -77,8 +77,8 @@ export const columns: ColumnDef<Project>[] = [
             status === "completed"
               ? "default"
               : status === "in-progress"
-              ? "secondary"
-              : "outline"
+                ? "secondary"
+                : "outline"
           }
         >
           {status}
@@ -102,8 +102,8 @@ export const columns: ColumnDef<Project>[] = [
             priority === "high"
               ? "destructive"
               : priority === "medium"
-              ? "secondary"
-              : "outline"
+                ? "secondary"
+                : "outline"
           }
         >
           {priority}
@@ -139,7 +139,10 @@ export const columns: ColumnDef<Project>[] = [
       return (
         <div className="flex -space-x-2">
           {teamMembers.map((member) => (
-            <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
+            <Avatar
+              key={member.id}
+              className="h-8 w-8 border-2 border-background"
+            >
               {member.avatar ? (
                 <img src={member.avatar} alt={member.name} />
               ) : (
@@ -185,4 +188,4 @@ export const columns: ColumnDef<Project>[] = [
     id: "actions",
     cell: ({ row }) => <DataTableRowActions row={row} />,
   },
-]; 
+];

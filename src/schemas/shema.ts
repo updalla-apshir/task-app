@@ -1,6 +1,8 @@
 import * as z from "zod";
+import { TaskPriority, ProjectStatus } from "@prisma/client";
 
-const projectStatusEnum = z.enum(["not_started", "in_progress", "completed"]);
+const projectStatusEnum = z.nativeEnum(ProjectStatus);
+const projectPriority = z.nativeEnum(TaskPriority);
 
 export const userRegisterSchema = z
   .object({
@@ -35,16 +37,16 @@ export const userLoginSchema = z.object({
 });
 
 export const projectSchema = z.object({
-  name: z.string(),
-  description: z.string().nullable().optional(),
-  start_date: z.coerce.date().nullable().optional(),
-  due_date: z.coerce.date().nullable().optional(),
-  status: projectStatusEnum.default("not_started"),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  ownerId: z.string(), // ObjectId as string
-  teamId: z.array(z.string()), // Changed to array of strings for multiple team members
-  owner: z.any(), // Replace with actual `userSchema` if available
-  team: z.any(), // Replace with `teamSchema`
-  tasks: z.array(z.any()), // Replace with `taskSchema`
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().optional(),
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  status: projectStatusEnum,
+  priority: projectPriority,
+  createdAt: z.date().optional().default(() => new Date()),
+  updatedAt: z.date().optional().default(() => new Date()),
+  ownerId: z.string(),
+  assignedTo: z.array(z.string()),
+  owner: z.any().optional(),
+  team: z.any().optional(),
 });

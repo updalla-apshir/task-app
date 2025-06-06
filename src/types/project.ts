@@ -4,7 +4,7 @@ import { Team } from "./team";
 
 export type ProjectStatus = "not_started" | "in_progress" | "completed"; // Adjust based on your enum
 
-export interface Project {
+export type Project = {
   id: string;
   name: string;
   description?: string | null;
@@ -18,4 +18,4 @@ export interface Project {
   team?: Team; // You should define `Team` interface separately
   teamId?: string | null;
   tasks: Task[]; // You should define `Task` interface separately
-}
+};

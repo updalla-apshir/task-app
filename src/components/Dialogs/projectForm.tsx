@@ -45,22 +45,34 @@ import { Role } from "@/types/user";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { createProject } from "../../../actions/project";
-import { ProjectStatus } from "@/types/project";
 import { toast } from "sonner";
+import { projectSchema } from "@/schemas/shema";
+import { ProjectStatus } from "@prisma/client";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Project name is required"),
-  description: z.string().optional(),
-  startDate: z.date().optional(),
-  endDate: z.date().optional(),
-  status: z.enum(["not-started", "in-progress", "completed"]),
-  priority: z.enum(["low", "medium", "high"]),
-  assignedTo: z
-    .array(z.string())
-    .min(1, "At least one team member must be assigned"),
+// const formSchema = z.object({
+//   name: z.string().min(1, "Project name is required"),
+//   description: z.string().optional(),
+//   startDate: z.date().optional(),
+//   endDate: z.date().optional(),
+//   status: z.enum(["not-started", "in-progress", "completed"]),
+//   priority: z.enum(["low", "medium", "high"]),
+//   assignedTo: z
+//     .array(z.string())
+//     .min(1, "At least one team member must be assigned"),
+// });
+
+type ProjectFormValues = z.infer<typeof projectSchema>;
+
+// Create a local form schema that matches the form fields exactly
+const formSchema = projectSchema.omit({
+  createdAt: true,
+  updatedAt: true,
+  ownerId: true,
+  owner: true,
+  team: true,
 });
 
-type ProjectFormValues = z.infer<typeof formSchema>;
+type LocalFormValues = z.infer<typeof formSchema>;
 
 interface TeamMember {
   id: string;
@@ -74,7 +86,7 @@ interface ProjectFormProps {
   setOpen: (open: boolean) => void;
   teamMembers?: TeamMember[];
   currentUserId: string;
-  onSubmit?: (data: ProjectFormValues) => void;
+  onSubmit?: (status: string) => void;
 }
 
 export function ProjectForm({
@@ -82,6 +94,7 @@ export function ProjectForm({
   setOpen,
   teamMembers = [],
   currentUserId,
+  onSubmit,
 }: ProjectFormProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -95,13 +108,13 @@ export function ProjectForm({
     router.push("/team");
   };
 
-  const form = useForm<ProjectFormValues>({
+  const form = useForm<LocalFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",
-      status: "not-started",
-      priority: "medium",
+      status: "not_started",
+      priority: "Medium",
       assignedTo: isPremiumUser
         ? hasTeamMembers
           ? [teamMembers[0].id]
@@ -113,40 +126,47 @@ export function ProjectForm({
   const [startDateOpen, setStartDateOpen] = React.useState(false);
   const [endDateOpen, setEndDateOpen] = React.useState(false);
 
-  const handleSubmit = async (data: ProjectFormValues) => {
+  const handleSubmit = async (data: LocalFormValues) => {
     if (isPremiumUser && !hasTeamMembers) {
       handleRedirectToTeam();
       return;
     }
 
     try {
+      console.log("Form submitted with data:", data);
       const now = new Date();
       const projectPayload = {
         name: data.name,
-        description: data.description ?? null,
-        start_date: data.startDate ?? null,
-        due_date: data.endDate ?? null,
-        status: data.status.replace("-", "_") as "not_started" | "in_progress" | "completed",
+        description: data.description,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        status: data.status,
+        priority: data.priority,
+        assignedTo:
+          data.assignedTo.length > 0 ? data.assignedTo : [currentUserId],
         createdAt: now,
         updatedAt: now,
         ownerId: currentUserId,
-        ...(data.assignedTo.length > 0 ? { teamId: data.assignedTo[0] } : {}),
-        tasks: [],
-        team: null,
-        owner: null
       };
 
       const res = await createProject(projectPayload);
       if (res.success) {
+        form.reset();
         toast.success("Project created successfully");
-        router.refresh();
         setOpen(false);
+        if (onSubmit && res.data) {
+          onSubmit("success");
+        }
       } else {
-        console.error('Project creation failed:', res.error);
-        toast.error(Array.isArray(res.error) ? res.error[0]?.message : res.error || "Failed to create project");
+        console.error("Project creation failed:", res.error);
+        toast.error(
+          Array.isArray(res.error)
+            ? res.error[0]?.message
+            : res.error || "Failed to create project"
+        );
       }
     } catch (error) {
-      console.error('Project creation error:', error);
+      console.error("Project creation error:", error);
       toast.error("An unexpected error occurred");
     }
   };
@@ -235,9 +255,9 @@ export function ProjectForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

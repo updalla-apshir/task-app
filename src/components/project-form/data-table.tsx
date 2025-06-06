@@ -42,56 +42,16 @@ export function DataTable<TData, TValue>({
   onProjectUpdate,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  
-  // Responsive column visibility
-  const isMobile = useMediaQuery("(max-width: 640px)");
-  const isTablet = useMediaQuery("(max-width: 1024px)");
-
-  const defaultColumnVisibility = React.useMemo(() => {
-    if (isMobile) {
-      return {
-        select: true,
-        name: true,
-        status: true,
-        priority: true,
-        actions: true,
-        progress: false,
-        teamMembers: false,
-        startDate: false,
-        endDate: false,
-      } as VisibilityState;
-    }
-    if (isTablet) {
-      return {
-        select: true,
-        name: true,
-        status: true,
-        priority: true,
-        progress: true,
-        teamMembers: true,
-        actions: true,
-        startDate: false,
-        endDate: false,
-      } as VisibilityState;
-    }
-    return {} as VisibilityState;
-  }, [isMobile, isTablet]);
-
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(defaultColumnVisibility);
-
-  // Update column visibility when screen size changes
-  React.useEffect(() => {
-    setColumnVisibility(defaultColumnVisibility);
-  }, [defaultColumnVisibility]);
 
   const table = useReactTable({
     data,
     columns,
     state: {
       sorting,
-      columnVisibility,
       rowSelection,
       columnFilters,
     },
@@ -99,7 +59,6 @@ export function DataTable<TData, TValue>({
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -109,70 +68,59 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className="h-full flex flex-col">
+    <div>
       <div className="pb-4">
         <DataTableToolbar table={table} />
       </div>
-      <div className="relative flex-1 min-h-0">
-        <div className="absolute inset-0 rounded-md border">
-          <div className="overflow-auto h-full">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-background border-b">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead 
-                          key={header.id} 
-                          colSpan={header.colSpan}
-                          className="whitespace-nowrap"
-                        >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
+      <div className="w-full overflow-x-auto border rounded-md">
+        <table className="min-w-[800px] w-full text-sm">
+          <thead className="bg-background border-b">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className="text-left whitespace-nowrap p-2"
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </th>
                 ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell 
-                          key={cell.id} 
-                          className="whitespace-nowrap"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
-                      No results.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className="hover:bg-muted"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="whitespace-nowrap p-2">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="text-center p-4">
+                  No results.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
       <div className="pt-4">
         <DataTablePagination table={table} />

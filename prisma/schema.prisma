@@ -11,9 +11,9 @@ enum TaskStatus {
 }
 
 enum TaskPriority {
-  low
-  medium
-  high
+  Low
+  Medium
+  High
 }
 
 enum ProjectStatus {
@@ -37,21 +37,21 @@ generator client {
 }
 
 model User {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  id            String              @id @default(auto()) @map("_id") @db.ObjectId
   name          String?
-  email         String?      @unique
+  email         String?             @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          Role         @default(User)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  role          Role                @default(User)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
   accounts      Account[]
   sessions      Session[]
   teams         TeamMember[]
-  ownedProjects Project[]    @relation("ProjectOwner")
-  assignedTasks Task[]       @relation("AssignedTasks")
-  createdTasks  Task[]       @relation("CreatedTasks")
+  ownedProjects Project[]           @relation("ProjectOwner")
+  createdTasks  Task[]              @relation("CreatedTasks")
+  assignedTasks ProjectAssignment[]
 }
 
 model Team {
@@ -80,18 +80,20 @@ model TeamMember {
 }
 
 model Project {
-  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String?
   start_date  DateTime?
   due_date    DateTime?
-  status      ProjectStatus @default(not_started)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
-  ownerId     String        @db.ObjectId
-  team        Team?         @relation(fields: [teamId], references: [id])
-  teamId      String?       @db.ObjectId
+  status      ProjectStatus       @default(not_started)
+  priority    TaskPriority
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  teamId      String?             @db.ObjectId
+  owner       User                @relation("ProjectOwner", fields: [ownerId], references: [id])
+  ownerId     String              @db.ObjectId
+  team        Team?               @relation(fields: [teamId], references: [id])
+  assignedTo  ProjectAssignment[]
   tasks       Task[]
 
   @@index([ownerId])
@@ -103,21 +105,18 @@ model Task {
   title       String
   description String?
   status      TaskStatus   @default(pending)
-  priority    TaskPriority @default(medium)
+  priority    TaskPriority
   due_date    DateTime?
   start_date  DateTime?
   created_at  DateTime     @default(now())
   updated_at  DateTime     @updatedAt
-  assigned_to String?      @db.ObjectId
   created_by  String       @db.ObjectId
   project_id  String       @db.ObjectId
   is_archived Boolean      @default(false)
 
-  assignedTo User?   @relation("AssignedTasks", fields: [assigned_to], references: [id])
-  createdBy  User    @relation("CreatedTasks", fields: [created_by], references: [id])
-  project    Project @relation(fields: [project_id], references: [id])
+  createdBy User    @relation("CreatedTasks", fields: [created_by], references: [id])
+  project   Project @relation(fields: [project_id], references: [id])
 
-  @@index([assigned_to])
   @@index([created_by])
   @@index([project_id])
 }
@@ -173,4 +172,16 @@ model OTP {
 
   @@unique([email, code])
   @@index([email])
+}
+
+model ProjectAssignment {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  user      User    @relation(fields: [userId], references: [id])
+  userId    String  @db.ObjectId
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String  @db.ObjectId
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
 }

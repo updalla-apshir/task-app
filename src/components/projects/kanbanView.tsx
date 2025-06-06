@@ -51,41 +51,6 @@ const getStatusFromProgress = (progress: number): Status => {
   return exampleStatuses[1]; // In Progress
 };
 
-// Raw feature data with date strings
-const rawFeatures: Feature[] = [
-  {
-    id: "1",
-    name: "AI Scene Analysis",
-    desc: "Analyze scenes using AI to improve production quality.",
-    startAt: new Date("2025-05-01"),
-    endAt: new Date("2025-06-15"),
-    status: exampleStatuses[0],
-    priority: "High",
-    progress: 10,
-  },
-  {
-    id: "2",
-    name: "Collaborative Editing",
-    desc: "Allow multiple users to edit videos simultaneously.",
-    startAt: new Date("2025-04-01"),
-    endAt: new Date("2025-05-20"),
-    status: exampleStatuses[1],
-    priority: "Medium",
-    progress: 20,
-  },
-  {
-    id: "3",
-    name: "AI-Powered Color Grading",
-    desc: "Use AI to automatically grade colors.",
-    startAt: new Date("2025-03-01"),
-    endAt: new Date("2025-04-30"),
-    status: exampleStatuses[2],
-    priority: "Low",
-    progress: 80,
-  },
-  // Additional features can be added here
-];
-
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -100,12 +65,12 @@ function getProgressColor(progress: number): string {
 }
 
 const statusColumns = [
-  { id: "not-started", name: "Not Started", color: "#94A3B8" },
-  { id: "in-progress", name: "In Progress", color: "#F59E0B" },
+  { id: "not_started", name: "Not Started", color: "#94A3B8" },
+  { id: "in_progress", name: "In Progress", color: "#F59E0B" },
   { id: "completed", name: "Completed", color: "#10B981" },
 ] as const;
 
-type ProjectStatus = "not-started" | "in-progress" | "completed";
+type ProjectStatus = "not_started" | "in_progress" | "completed";
 
 export default function ProjectKanban() {
   const { draggingTaskId, setDraggingTaskId } = useKanban();
@@ -143,6 +108,7 @@ export default function ProjectKanban() {
   };
 
   const handleDragStart = (e: React.DragEvent, projectId: string) => {
+    console.log("Drag started for project:", projectId);
     e.dataTransfer.setData("text/plain", projectId);
     setDraggingTaskId(projectId);
   };
@@ -154,17 +120,20 @@ export default function ProjectKanban() {
   const handleDrop = (e: React.DragEvent, newStatus: ProjectStatus) => {
     e.preventDefault();
     const projectId = e.dataTransfer.getData("text/plain");
+    console.log("Dropping project:", projectId, "to status:", newStatus);
 
     // Update the project status in the query
     queryClient.setQueryData(
       ["projects"],
       (oldProjects: Project[] | undefined) => {
         if (oldProjects) {
-          return oldProjects.map((project) =>
+          const updatedProjects = oldProjects.map((project) =>
             project.id === projectId
               ? { ...project, status: newStatus }
               : project
           );
+          console.log("Updated projects:", updatedProjects);
+          return updatedProjects;
         }
         return oldProjects;
       }
@@ -177,7 +146,13 @@ export default function ProjectKanban() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
+      {/* Debug info - remove in production */}
+      {projects.length === 0 && (
+        <div className="bg-yellow-100 p-2 mb-4 rounded text-sm">
+          <p>No projects loaded. Check console for errors.</p>
+        </div>
+      )}
       {/* Search Input */}
       <div className="flex flex-col mb-4 md:flex-row md:items-center justify-between gap-4">
         {/* Search Bar */}
@@ -237,7 +212,7 @@ export default function ProjectKanban() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-3 gap-4">
         {statusColumns.map((column) => {
           const columnProjects = projects.filter((p) => {
             const matchesSearch =
@@ -252,7 +227,7 @@ export default function ProjectKanban() {
           return (
             <div
               key={column.id}
-              className="flex flex-col rounded-lg border bg-card"
+              className="flex flex-col rounded-lg border bg-card min-h-[400px]"
             >
               <div className="p-3 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
@@ -261,7 +236,7 @@ export default function ProjectKanban() {
                 </div>
               </div>
               <div
-                className="p-2 flex-1 overflow-auto"
+                className="p-2 flex-grow"
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, column.id as ProjectStatus)}
               >
@@ -294,9 +269,9 @@ export default function ProjectKanban() {
                           </h4>
                           <Badge
                             variant={
-                              project.priority === "high"
+                              project.priority === "High"
                                 ? "destructive"
-                                : project.priority === "medium"
+                                : project.priority === "Medium"
                                   ? "secondary"
                                   : "outline"
                             }

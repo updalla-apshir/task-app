@@ -1,4 +1,5 @@
 import { getProjects } from "../../actions/project";
+import { ProjectStatus, TaskPriority } from "@prisma/client";
 
 export type TeamMember = {
   id: string;
@@ -10,11 +11,11 @@ export type TeamMember = {
 export type Project = {
   id: string;
   name: string;
-  description?: string;
-  startDate?: Date;
-  endDate?: Date;
-  status: "not-started" | "in-progress" | "completed";
-  priority: "low" | "medium" | "high";
+  description?: string | null;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  status: "not_started" | "in_progress" | "completed";
+  priority: "Low" | "Medium" | "High";
   teamSize?: string;
   progress: number;
   teamMembers: TeamMember[];
@@ -22,61 +23,94 @@ export type Project = {
   updatedAt: Date;
 };
 
-export const defaultTeamMembers: TeamMember[] = [
-  {
-    id: "1",
-    name: "Michael Newton",
-    email: "michael@example.com",
-  },
-  {
-    id: "2",
-    name: "Alice Parker",
-    email: "alice@example.com",
-  },
-  {
-    id: "3",
-    name: "David Smith",
-    email: "david@example.com",
-  },
-  {
-    id: "4",
-    name: "Sarah Johnson",
-    email: "sarah@example.com",
-  },
-  {
-    id: "5",
-    name: "Robert Wilson",
-    email: "robert@example.com",
-  },
-];
+// Define the shape of data returned by the API
+interface ProjectApiResponse {
+  id: string;
+  name: string;
+  description: string;
+  status: ProjectStatus;
+  priority: TaskPriority;
+  start_date: Date | null;
+  due_date: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  ownerId: string;
+  owner: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  };
+  assignedTo: Array<{
+    user: {
+      id: string;
+      name: string | null;
+      email: string | null;
+      image: string | null;
+    };
+  }>;
+  tasks?: Array<{ status: string }>;
+}
 
 export const defaultProjects = async (): Promise<Project[]> => {
-  const data = await getProjects();
-  return data.map(project => {
-    // Map the status to one of the allowed values
-    let mappedStatus: "not-started" | "in-progress" | "completed";
-    switch (project.status?.toLowerCase()) {
-      case "in progress":
-      case "in-progress":
-        mappedStatus = "in-progress";
-        break;
-      case "completed":
-      case "done":
-        mappedStatus = "completed";
-        break;
-      default:
-        mappedStatus = "not-started";
+  try {
+    const data = await getProjects();
+    console.log("Fetched raw project data:", data);
+
+    if (!data || !Array.isArray(data)) {
+      console.log("No project data or invalid data format received");
+      return [];
     }
 
-    return {
-      ...project,
-      description: project.description || undefined,
-      priority: "medium",
-      progress: 0,
-      teamMembers: [],
-      startDate: project.start_date || undefined,
-      endDate: project.due_date || undefined,
-      status: mappedStatus
-    };
-  });
+    if (data.length === 0) {
+      console.log("No projects found");
+      return [];
+    }
+
+    const transformedData = data.map((item: ProjectApiResponse) => {
+      // Calculate progress based on tasks
+      let progress = 0;
+      const tasks = item.tasks || [];
+
+      if (tasks.length > 0) {
+        const completedTasks = tasks.filter(
+          (task) => task.status === "completed"
+        ).length;
+        progress = Math.round((completedTasks / tasks.length) * 100);
+      }
+
+      // Transform assignedTo data safely
+      const teamMembers = Array.isArray(item.assignedTo)
+        ? item.assignedTo.map((assignment) => ({
+            id: assignment?.user?.id || "",
+            name: assignment?.user?.name || "Unknown",
+            email: assignment?.user?.email || "",
+            avatar: assignment?.user?.image || "",
+          }))
+        : [];
+
+      // Ensure all required fields have values
+      const project: Project = {
+        id: item.id,
+        name: item.name,
+        description: item.description || "",
+        startDate: item.start_date,
+        endDate: item.due_date,
+        status: item.status,
+        priority: item.priority,
+        teamSize: String(teamMembers.length || 1),
+        progress: progress,
+        teamMembers: teamMembers,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      };
+      return project;
+    });
+
+    console.log("Transformed project data:", transformedData);
+    return transformedData;
+  } catch (error) {
+    console.error("Error transforming project data:", error);
+    return [];
+  }
 };
