@@ -5,7 +5,7 @@ import { Project, TeamMember } from "@/lib/project-data";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTableColumnHeader } from "@/components/task-form/data-table-column-header";
-import { DataTableRowActions } from "@/components/task-form/data-table-row-actions";
+import { DataTableRowActions } from "./data-table-row-actions";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -49,6 +49,14 @@ export const columns: ColumnDef<Project>[] = [
     enableSorting: false,
     enableHiding: false,
   },
+  {
+    id: "index",
+    header: "#",
+    cell: ({ row }) => row.index + 1,
+    enableSorting: false,
+    enableHiding: false,
+  },
+
   {
     accessorKey: "name",
     header: ({ column }) => (
@@ -183,6 +191,13 @@ export const columns: ColumnDef<Project>[] = [
         </div>
       ) : null;
     },
+  },
+  {
+    accessorKey: "createdAt",
+    header: () => null, // Don't render the header
+    cell: () => null, // Don't render any cell content
+    enableSorting: true, // Still allow sorting
+    enableHiding: false,
   },
   {
     id: "actions",

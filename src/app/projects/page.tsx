@@ -16,7 +16,6 @@ import { Feature, Status } from "@/components/projects/kanban";
 import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTeam } from "../../../actions/team";
-import { createProject } from "../../../actions/project";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { projectSchema } from "../../schemas/shema";
@@ -84,20 +83,6 @@ function ProjectsPageContent() {
   });
 
   console.log("Projects data:", projects);
-
-  // Create project mutation
-  const projectMutation = useMutation({
-    mutationFn: createProject,
-    onSuccess: () => {
-      // Invalidate and refetch projects query
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      toast.success("Project created successfully");
-    },
-    onError: (error) => {
-      console.error("Project creation error:", error);
-      toast.error("Failed to create project");
-    }
-  });
 
   // Fetch team data
   const { data: teamData } = useQuery<Team | EmptyTeam>({

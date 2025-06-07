@@ -8,8 +8,8 @@ export type Project = {
   id: string;
   name: string;
   description?: string | null;
-  start_date?: Date | null;
-  due_date?: Date | null;
+  start_date?: Date;
+  due_date?: Date;
   status: ProjectStatus;
   createdAt: Date;
   updatedAt: Date;

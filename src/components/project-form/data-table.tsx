@@ -28,7 +28,6 @@ import {
 import { DataTablePagination } from "@/components/task-form/data-table-pagination";
 import { DataTableToolbar } from "@/components/project-form/data-table-toolbar";
 import { Project } from "@/lib/project-data";
-import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -45,8 +44,14 @@ export function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "createdAt", desc: true },
+    { id: "index", desc: true },
+  ]);
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({
+      id: false,
+    });
   const table = useReactTable({
     data,
     columns,
@@ -54,11 +59,13 @@ export function DataTable<TData, TValue>({
       sorting,
       rowSelection,
       columnFilters,
+      columnVisibility,
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -73,7 +80,7 @@ export function DataTable<TData, TValue>({
         <DataTableToolbar table={table} />
       </div>
       <div className="w-full overflow-x-auto border rounded-md">
-        <table className="min-w-[800px] w-full text-sm">
+        <table className="min-w-[850px] w-full text-sm">
           <thead className="bg-background border-b">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>

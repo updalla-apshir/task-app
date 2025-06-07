@@ -24,7 +24,7 @@ export type Project = {
 };
 
 // Define the shape of data returned by the API
-interface ProjectApiResponse {
+export interface ProjectApiResponse {
   id: string;
   name: string;
   description: string;
@@ -33,7 +33,7 @@ interface ProjectApiResponse {
   start_date: Date | null;
   due_date: Date | null;
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt?: Date;
   ownerId: string;
   owner: {
     id: string;
@@ -102,7 +102,7 @@ export const defaultProjects = async (): Promise<Project[]> => {
         progress: progress,
         teamMembers: teamMembers,
         createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
+        updatedAt: item.updatedAt || item.createdAt || new Date(),
       };
       return project;
     });

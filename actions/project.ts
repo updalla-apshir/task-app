@@ -133,7 +133,6 @@ export const getProjects = async () => {
       start_date: project.start_date,
       due_date: project.due_date,
       createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
       ownerId: project.ownerId,
       owner: project.owner,
       assignedTo: project.assignedTo,
@@ -160,3 +159,86 @@ async function getProjectIdsForUser(userId: string): Promise<string[]> {
     return [];
   }
 }
+
+export const updateProject = async (
+  projectId: string,
+  formData: z.infer<typeof projectSchema>
+) => {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    if (!userId) return { success: false, error: "User not authenticated" };
+
+    const parseResult = projectSchema.safeParse(formData);
+
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error);
+      return { success: false, error: parseResult.error.flatten() };
+    }
+
+    if (!formData.name)
+      return { success: false, error: "Project name is required" };
+
+    const validAssignedTo = formData.assignedTo.filter((id) => id);
+    if (validAssignedTo.length === 0) {
+      return {
+        success: false,
+        error: "At least one assigned user is required",
+      };
+    }
+
+    try {
+      // Update the project
+      const project = await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          name: formData.name,
+          description: formData.description || "",
+          start_date: formData.startDate,
+          due_date: formData.endDate,
+          status: formData.status,
+          priority: formData.priority,
+          updatedAt: formData.updatedAt,
+        },
+      });
+
+      // Delete existing project assignments
+      await prisma.projectAssignment.deleteMany({
+        where: { projectId },
+      });
+
+      // Create new ProjectAssignments
+      await prisma.projectAssignment.createMany({
+        data: validAssignedTo.map((assignedUserId) => ({
+          userId: assignedUserId,
+          projectId: project.id,
+        })),
+      });
+
+      // Return success with the project data
+      return {
+        success: true,
+        data: {
+          ...project,
+          assignedTo: validAssignedTo.map((userId) => ({
+            userId,
+            projectId: project.id,
+            user: {
+              id: userId,
+              name: session?.user?.name || "",
+              email: session?.user?.email || "",
+              image: session?.user?.image || null,
+            },
+          })),
+        },
+      };
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+      return { success: false, error: "Failed to update project in database" };
+    }
+  } catch (error) {
+    console.error("Project update failed:", error);
+    return { success: false, error: String(error) };
+  }
+};

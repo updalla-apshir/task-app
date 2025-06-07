@@ -44,10 +44,12 @@ import { useSession } from "next-auth/react";
 import { Role } from "@/types/user";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { createProject } from "../../../actions/project";
+import { createProject, updateProject } from "../../../actions/project";
 import { toast } from "sonner";
 import { projectSchema } from "@/schemas/shema";
 import { ProjectStatus } from "@prisma/client";
+import { Project } from "@/types/project";
+import { ProjectApiResponse } from "@/lib/project-data";
 
 // const formSchema = z.object({
 //   name: z.string().min(1, "Project name is required"),
@@ -87,6 +89,7 @@ interface ProjectFormProps {
   teamMembers?: TeamMember[];
   currentUserId: string;
   onSubmit?: (status: string) => void;
+  initialData?: ProjectApiResponse; // Project data for editing
 }
 
 export function ProjectForm({
@@ -95,13 +98,16 @@ export function ProjectForm({
   teamMembers = [],
   currentUserId,
   onSubmit,
+  initialData,
 }: ProjectFormProps) {
   const { data: session } = useSession();
   const router = useRouter();
+  const [isLoading, setIsLoading] = React.useState(false);
 
   const userRole = session?.user?.role ?? Role.User;
   const isPremiumUser = userRole === Role.Premium;
   const hasTeamMembers = teamMembers.length > 0;
+  const isEditMode = !!initialData;
 
   const handleRedirectToTeam = () => {
     setOpen(false);
@@ -110,18 +116,55 @@ export function ProjectForm({
 
   const form = useForm<LocalFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      status: "not_started",
-      priority: "Medium",
-      assignedTo: isPremiumUser
-        ? hasTeamMembers
-          ? [teamMembers[0].id]
-          : []
-        : [currentUserId],
-    },
+    defaultValues: initialData
+      ? {
+          name: initialData.name || "",
+          description: initialData.description || "",
+          priority: initialData.priority,
+          startDate: initialData.start_date ?? undefined,
+          endDate: initialData.due_date ?? undefined,
+          status: initialData.status,
+          assignedTo:
+            initialData.assignedTo?.map((a: any) => a.userId || a.user?.id) ||
+            (isPremiumUser
+              ? hasTeamMembers
+                ? [teamMembers[0].id]
+                : []
+              : [currentUserId]),
+        }
+      : {
+          name: "",
+          description: "",
+          status: "not_started",
+          priority: "Medium",
+          assignedTo: isPremiumUser
+            ? hasTeamMembers
+              ? [teamMembers[0].id]
+              : []
+            : [currentUserId],
+        },
   });
+
+  // Reset form when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name || "",
+        description: initialData.description || "",
+        priority: initialData.priority,
+        startDate: initialData.start_date ?? undefined,
+        endDate: initialData.due_date ?? undefined,
+        status: initialData.status,
+        assignedTo:
+          initialData.assignedTo?.map((a: any) => a.userId || a.user?.id) ||
+          (isPremiumUser
+            ? hasTeamMembers
+              ? [teamMembers[0].id]
+              : []
+            : [currentUserId]),
+      });
+    }
+  }, [initialData, form, isPremiumUser, hasTeamMembers, teamMembers, currentUserId]);
 
   const [startDateOpen, setStartDateOpen] = React.useState(false);
   const [endDateOpen, setEndDateOpen] = React.useState(false);
@@ -133,6 +176,7 @@ export function ProjectForm({
     }
 
     try {
+      setIsLoading(true);
       console.log("Form submitted with data:", data);
       const now = new Date();
       const projectPayload = {
@@ -149,30 +193,49 @@ export function ProjectForm({
         ownerId: currentUserId,
       };
 
-      const res = await createProject(projectPayload);
+      let res;
+
+      if (isEditMode && initialData) {
+        res = await updateProject(initialData.id, projectPayload);
+      } else {
+        res = await createProject(projectPayload);
+      }
+
       if (res.success) {
         form.reset();
-        toast.success("Project created successfully");
+        toast.success(
+          isEditMode
+            ? "Project updated successfully"
+            : "Project created successfully"
+        );
         setOpen(false);
         if (onSubmit && res.data) {
           onSubmit("success");
         }
       } else {
-        console.error("Project creation failed:", res.error);
+        console.error(
+          isEditMode ? "Project update failed:" : "Project creation failed:",
+          res.error
+        );
         toast.error(
           Array.isArray(res.error)
             ? res.error[0]?.message
-            : res.error || "Failed to create project"
+            : res.error ||
+                (isEditMode
+                  ? "Failed to update project"
+                  : "Failed to create project")
         );
       }
     } catch (error) {
       console.error("Project creation error:", error);
       toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Check if form submission should be disabled
-  const isSubmitDisabled = isPremiumUser && !hasTeamMembers;
+  const isSubmitDisabled = isPremiumUser && !hasTeamMembers || isLoading;
 
   return (
     <Dialog open={open} onOpenChange={setOpen} modal={true}>
@@ -180,12 +243,14 @@ export function ProjectForm({
         <div className="p-6 pb-4 border-b">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold tracking-tight">
-              Create New Project
+              {isEditMode ? "Edit Project" : "Create New Project"}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               {isPremiumUser
                 ? "As a premium user, you can assign projects to team members."
-                : "Fill out the details of the project you want to create."}
+                : isEditMode
+                  ? "Update the details of your project."
+                  : "Fill out the details of the project you want to create."}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -439,15 +504,25 @@ export function ProjectForm({
                   type="button"
                   variant="outline"
                   onClick={() => setOpen(false)}
+                  disabled={isLoading}
                 >
                   Cancel
                 </Button>
                 {isPremiumUser && !hasTeamMembers ? (
-                  <Button type="button" onClick={handleRedirectToTeam}>
+                  <Button type="button" onClick={handleRedirectToTeam} disabled={isLoading}>
                     Add Team Members
                   </Button>
                 ) : (
-                  <Button type="submit">Create Project</Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <span className="mr-2">{isEditMode ? "Updating..." : "Creating..."}</span>
+                        <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                      </>
+                    ) : (
+                      <>{isEditMode ? "Update" : "Create"} Project</>
+                    )}
+                  </Button>
                 )}
               </div>
             </form>
