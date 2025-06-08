@@ -20,6 +20,7 @@ import { useSession } from "next-auth/react";
 import { getTeam } from "../../../actions/team";
 import { Project, ProjectApiResponse } from "@/lib/project-data";
 import { error } from "console";
+import DeleteProject from "../Dialogs/DeleteProject";
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>;
@@ -55,6 +56,7 @@ export function DataTableRowActions<TData>({
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [openDelete, setOpenDelete] = useState(false);
 
   const queryClient = useQueryClient();
   const session = useSession();
@@ -85,37 +87,40 @@ export function DataTableRowActions<TData>({
 
   const handleProjectUpdate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["projects"] });
-    setRefreshKey(prev => prev + 1);
+    setRefreshKey((prev) => prev + 1);
     setOpen(false);
   };
 
   // Create initialData object with latest project data
-  const initialData = useMemo(() => ({
-    id: project.id,
-    name: project.name,
-    description: project.description || "",
-    status: project.status,
-    priority: project.priority,
-    start_date: project.startDate || null,
-    due_date: project.endDate || null,
-    createdAt: project.createdAt,
-    updatedAt: project.updatedAt,
-    ownerId: userId,
-    owner: {
-      id: userId,
-      name: session.data?.user?.name || null,
-      email: session.data?.user?.email || null,
-      image: session.data?.user?.image || null,
-    },
-    assignedTo: project.teamMembers.map((member) => ({
-      user: {
-        id: member.id,
-        name: member.name,
-        email: member.email,
-        image: member.avatar || null,
+  const initialData = useMemo(
+    () => ({
+      id: project.id,
+      name: project.name,
+      description: project.description || "",
+      status: project.status,
+      priority: project.priority,
+      start_date: project.startDate || null,
+      due_date: project.endDate || null,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      ownerId: userId,
+      owner: {
+        id: userId,
+        name: session.data?.user?.name || null,
+        email: session.data?.user?.email || null,
+        image: session.data?.user?.image || null,
       },
-    })),
-  }), [project, userId, session.data?.user, refreshKey]);
+      assignedTo: project.teamMembers.map((member) => ({
+        user: {
+          id: member.id,
+          name: member.name,
+          email: member.email,
+          image: member.avatar || null,
+        },
+      })),
+    }),
+    [project, userId, session.data?.user, refreshKey]
+  );
 
   return (
     <>
@@ -141,7 +146,11 @@ export function DataTableRowActions<TData>({
           </DropdownMenuItem>
           <DropdownMenuItem>Make a copy</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={(e) => {
+              setOpenDelete(true);
+            }}
+          >
             Delete
             <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
           </DropdownMenuItem>
@@ -155,6 +164,16 @@ export function DataTableRowActions<TData>({
         teamMembers={teamMembers}
         onSubmit={handleProjectUpdate}
         initialData={initialData}
+      />
+
+      <DeleteProject
+        open={openDelete}
+        setOpen={setOpenDelete}
+        projectId={project.id}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["projects"] }); // ✅ Refresh
+          setOpenDelete(false);
+        }}
       />
     </>
   );

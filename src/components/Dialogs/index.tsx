@@ -29,7 +29,7 @@ export function TaskDialog({ open, setOpen, onSubmit }: TaskDialogProps) {
             Fill out the details of the task you want to create.
           </DialogDescription>
         </DialogHeader>
-        <TaskForm setOpen={setOpen} onSubmit={onSubmit} />
+        <TaskForm open={open} setOpen={setOpen} onSubmit={onSubmit} />
       </DialogContent>
     </Dialog>
   );

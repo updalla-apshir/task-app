@@ -242,3 +242,15 @@ export const updateProject = async (
     return { success: false, error: String(error) };
   }
 };
+export const deleteProject = async (projectId: string) => {
+  await prisma.$transaction([
+    prisma.projectAssignment.deleteMany({
+      where: { projectId },
+    }),
+    prisma.project.delete({
+      where: { id: projectId },
+    }),
+  ]);
+
+  return { success: true, message: "Project deleted successfully." };
+};

@@ -1,16 +1,17 @@
 import React from "react";
 import { Feature } from "./kanban";
+import { cn } from "@/lib/utils";
 
 type ProgressToolbarProps = {
   tasks: Feature[];
 };
 
-const priorityOrder = ["High", "Medium", "Low"] as const;
+const priorityOrder = ["HIGH", "MEDIUM", "LOW"] as const;
 
 const priorityColors = {
-  Low: "#34D399", // green-400
-  Medium: "#FBBF24", // yellow-400
-  High: "#EF4444", // red-500
+  LOW: "#34D399", // green-400
+  MEDIUM: "#FBBF24", // yellow-400
+  HIGH: "#EF4444", // red-500
 };
 
 export const ProgressToolbar = ({ tasks }: ProgressToolbarProps) => {
@@ -24,9 +25,9 @@ export const ProgressToolbar = ({ tasks }: ProgressToolbarProps) => {
   };
 
   tasks.forEach((task) => {
-    if (task.status.name === "Planned") statusCounts.Pending++;
-    else if (task.status.name === "In Progress") statusCounts["In Progress"]++;
-    else if (task.status.name === "Done") statusCounts.Completed++;
+    if (task.status === "todo") statusCounts.Pending++;
+    else if (task.status === "in_progress") statusCounts["In Progress"]++;
+    else if (task.status === "done") statusCounts.Completed++;
   });
 
   // Calculate % for progress bars
@@ -35,15 +36,11 @@ export const ProgressToolbar = ({ tasks }: ProgressToolbarProps) => {
 
   // Count by priority
   const priorityCounts = {
-    Low: 0,
-    Medium: 0,
-    High: 0,
+    HIGH: 0,
+    MEDIUM: 0,
+    LOW: 0,
   };
   tasks.forEach((task) => priorityCounts[task.priority]++);
-
-  function cn(arg0: string, arg1: string): string | undefined {
-    throw new Error("Function not implemented.");
-  }
 
   return (
     <div className="mb-6 p-4 bg-white rounded shadow flex flex-col gap-4">

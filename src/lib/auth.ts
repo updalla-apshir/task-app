@@ -16,6 +16,8 @@ interface CredentialsInput {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
+  // Configure trusted hosts
+  trustHost: true,
 
   providers: [
     Credentials({

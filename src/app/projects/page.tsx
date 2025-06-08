@@ -123,7 +123,7 @@ function ProjectsPageContent() {
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col overflow-hidden">
       <main className="flex-1 flex flex-col min-h-0 w-full max-w-full">
         <div className="p-4 flex-none">
           <div className="flex justify-between items-center">
