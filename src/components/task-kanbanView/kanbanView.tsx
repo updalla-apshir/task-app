@@ -52,8 +52,12 @@ const priorityColumns: Array<{ id: Priority; name: string; color: string }> = [
 
 export default function TaskKanban() {
   const { tasks, updateTask } = useTasks();
-  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
-  const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "incomplete">("all");
+  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(
+    null
+  );
+  const [completionFilter, setCompletionFilter] = useState<
+    "all" | "completed" | "incomplete"
+  >("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -130,40 +134,54 @@ function TaskKanbanContent({
       return completionFilter === "completed" ? f.isCompleted : !f.isCompleted;
     })
     .filter((f) => {
-      const today = startOfToday();
-      const endDate = new Date(f.endAt);
+      if (!f.due_date) return true;
 
-      if (!isValid(endDate)) return false;
+      const today = startOfToday();
+      const dueDate = new Date(f.due_date);
+
+      if (!isValid(dueDate)) return true;
 
       switch (dateFilter) {
         case "today":
-          return isToday(endDate);
+          return isToday(dueDate);
         case "this-week":
-          return isThisWeek(endDate);
+          return isThisWeek(dueDate);
         case "this-month":
-          return isThisMonth(endDate);
+          return isThisMonth(dueDate);
         case "overdue":
-          return isBefore(endDate, today) && !f.isCompleted;
+          return isBefore(dueDate, today) && !f.isCompleted;
         default:
           return true;
       }
     })
-    .filter(
-      (f) =>
-        f.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        f.desc?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        f.project?.toLowerCase().includes(searchQuery.toLowerCase().trim())
-    );
+    .filter((f) => {
+      if (!searchQuery.trim()) return true;
+
+      const query = searchQuery.toLowerCase().trim();
+      const titleMatch = f.title && f.title.toLowerCase().includes(query);
+      const descMatch = f.desc && f.desc.toLowerCase().includes(query);
+      const projectMatch = f.project && f.project.toLowerCase().includes(query);
+
+      return titleMatch || descMatch || projectMatch;
+    });
 
   const totalPages = Math.ceil(filteredTasks.length / tasksPerPage);
   const startIndex = (currentPage - 1) * tasksPerPage;
-  const paginatedTasks = filteredTasks.slice(startIndex, startIndex + tasksPerPage);
+  const paginatedTasks = filteredTasks.slice(
+    startIndex,
+    startIndex + tasksPerPage
+  );
 
   // Group tasks by priority for the current page
-  const tasksByPriority = priorityColumns.reduce((acc, priority) => {
-    acc[priority.id] = paginatedTasks.filter((task) => task.priority === priority.id);
-    return acc;
-  }, {} as Record<Priority, Task[]>);
+  const tasksByPriority = priorityColumns.reduce(
+    (acc, priority) => {
+      acc[priority.id] = paginatedTasks.filter(
+        (task) => task.priority === priority.id
+      );
+      return acc;
+    },
+    {} as Record<Priority, Task[]>
+  );
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -240,12 +258,7 @@ function TaskKanbanContent({
           </div>
 
           {/* List View Button */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => window.location.href = "/tasks"}
-            className="ml-auto"
-          >
+          <Button variant="outline" size="sm" className="ml-auto">
             <SlidersHorizontal className="mr-2 h-4 w-4" />
             List View
           </Button>
@@ -309,14 +322,27 @@ function TaskKanbanContent({
               <div className="flex items-center justify-between mb-2">
                 <KanbanHeader name={priority.name} color={priority.color} />
                 <span className="text-xs font-medium text-gray-500">
-                  {tasksByPriority[priority.id]?.length || 0} / {filteredTasks.filter(f => f.priority === priority.id).length} tasks
+                  {tasksByPriority[priority.id]?.length || 0} /{" "}
+                  {
+                    filteredTasks.filter((f) => f.priority === priority.id)
+                      .length
+                  }{" "}
+                  tasks
                 </span>
               </div>
               <div className="flex flex-col gap-3">
                 {tasksByPriority[priority.id]?.map((task, index) => (
                   <KanbanCard
                     key={task.id}
-                    {...task}
+                    id={task.id}
+                    name={task.title}
+                    desc={task.desc}
+                    startAt={task.start_date}
+                    endAt={task.due_date}
+                    status={task.status}
+                    priority={task.priority}
+                    isCompleted={task.isCompleted}
+                    project={task.project}
                     index={index}
                     parent={priority.id}
                     onToggleComplete={(id) => {
@@ -333,9 +359,7 @@ function TaskKanbanContent({
                         <span
                           className={cn(
                             "inline-block bg-gray-100 rounded-full px-3 py-1 text-xs font-semibold",
-                            task.isCompleted
-                              ? "text-gray-500"
-                              : "text-gray-700"
+                            task.isCompleted ? "text-gray-500" : "text-gray-700"
                           )}
                         >
                           {task.project}
@@ -396,7 +420,11 @@ function TaskKanbanContent({
               if (!shouldShow) {
                 // Show ellipsis if there's a gap
                 if (pageNum === 2 || pageNum === totalPages - 1) {
-                  return <span key={pageNum} className="text-gray-400">...</span>;
+                  return (
+                    <span key={pageNum} className="text-gray-400">
+                      ...
+                    </span>
+                  );
                 }
                 return null;
               }
@@ -418,7 +446,9 @@ function TaskKanbanContent({
           </div>
 
           <button
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            onClick={() =>
+              setCurrentPage(Math.min(totalPages, currentPage + 1))
+            }
             disabled={currentPage === totalPages}
             className={`px-3 py-2 rounded-lg border ${
               currentPage === totalPages

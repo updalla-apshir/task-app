@@ -101,18 +101,19 @@ model Project {
 }
 
 model Task {
-  id          String       @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  description String?
-  status      TaskStatus   @default(pending)
-  priority    TaskPriority
-  due_date    DateTime?
-  start_date  DateTime?
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
-  created_by  String       @db.ObjectId
-  project_id  String       @db.ObjectId
-  is_archived Boolean      @default(false)
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  description  String?
+  status       TaskStatus   @default(pending)
+  priority     TaskPriority
+  due_date     DateTime?
+  start_date   DateTime?
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @updatedAt
+  created_by   String       @db.ObjectId
+  project_id   String       @db.ObjectId
+  is_archived  Boolean      @default(false)
+  is_Completed Boolean      @default(false)
 
   createdBy User    @relation("CreatedTasks", fields: [created_by], references: [id])
   project   Project @relation(fields: [project_id], references: [id])

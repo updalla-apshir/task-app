@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ArrowDown,
 } from "lucide-react";
+import { getTasksForUser } from "../../actions/task";
 
 export type Priority = "HIGH" | "MEDIUM" | "LOW";
 
@@ -52,356 +53,59 @@ export type Status = {
 
 export type Task = {
   id: string;
-  name: string;
+  title: string;
   desc?: string;
-  startAt: string | Date;
-  endAt: string | Date;
+  start_date: string | Date;
+  due_date: string | Date;
   status: Status;
   priority: Priority;
   isCompleted: boolean;
-  project?: string;
+  project: string;
 };
 
 // Helper function to ensure dates are properly formatted
 function createTask(
-  task: Omit<Task, "startAt" | "endAt"> & { startAt: string; endAt: string }
+  task: Omit<Task, "start_date" | "due_date"> & {
+    startAt: string;
+    endAt: string;
+  }
 ): Task {
   return {
     ...task,
-    startAt: new Date(task.startAt),
-    endAt: new Date(task.endAt),
+    start_date: new Date(task.startAt),
+    due_date: new Date(task.endAt),
   };
 }
 
-export const defaultTasks: Task[] = [
-  createTask({
-    id: "1",
-    name: "Update API configs",
-    desc: "Update API configs with examples and test cases",
-    startAt: "2025-06-22",
-    endAt: "2025-06-25",
-    status: { id: "1", name: "In Progress", color: "#3B82F6" },
-    priority: "LOW",
-    isCompleted: false,
-    project: "Reporting",
-  }),
-  createTask({
-    id: "2",
-    name: "Deploy User Profile service",
-    desc: "Deploy User Profile service with examples and test cases",
-    startAt: "2025-06-06",
-    endAt: "2025-06-11",
-    status: { id: "2", name: "Completed", color: "#3B82F6" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Reporting",
-  }),
-  createTask({
-    id: "3",
-    name: "Refactor Registration module",
-    desc: "Refactor Registration module with examples and test cases",
-    startAt: "2025-06-22",
-    endAt: "2025-06-30",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Auth System",
-  }),
-  createTask({
-    id: "4",
-    name: "Implement Authentication",
-    desc: "Implement Authentication with examples and test cases",
-    startAt: "2025-06-04",
-    endAt: "2025-06-06",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Dashboard",
-  }),
-  createTask({
-    id: "5",
-    name: "Fix bugs in User Profile",
-    desc: "Fix bugs in User Profile with examples and test cases",
-    startAt: "2025-06-06",
-    endAt: "2025-06-07",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "HIGH",
-    isCompleted: true,
-    project: "Backend",
-  }),
-  createTask({
-    id: "6",
-    name: "Setup CI/CD for Dashboard",
-    desc: "Setup CI/CD for Dashboard with examples and test cases",
-    startAt: "2025-06-11",
-    endAt: "2025-06-17",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "LOW",
-    isCompleted: false,
-    project: "Dashboard",
-  }),
-  createTask({
-    id: "7",
-    name: "Deploy Notification service",
-    desc: "Deploy Notification service with examples and test cases",
-    startAt: "2025-06-07",
-    endAt: "2025-06-15",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Auth System",
-  }),
-  createTask({
-    id: "8",
-    name: "Document Admin Panel",
-    desc: "Document Admin Panel with examples and test cases",
-    startAt: "2025-06-30",
-    endAt: "2025-07-05",
-    status: { id: "1", name: "In Progress", color: "#3B82F6" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Notifications",
-  }),
-  createTask({
-    id: "9",
-    name: "Design Notification UI",
-    desc: "Design Notification UI with examples and test cases",
-    startAt: "2025-06-14",
-    endAt: "2025-06-22",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "LOW",
-    isCompleted: true,
-    project: "Frontend",
-  }),
-  createTask({
-    id: "10",
-    name: "Test Admin Panel integration",
-    desc: "Test Admin Panel integration with examples and test cases",
-    startAt: "2025-06-06",
-    endAt: "2025-06-12",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "HIGH",
-    isCompleted: true,
-    project: "Backend",
-  }),
-  createTask({
-    id: "11",
-    name: "Fix bugs in API",
-    desc: "Fix bugs in API with examples and test cases",
-    startAt: "2025-06-21",
-    endAt: "2025-06-26",
-    status: { id: "1", name: "In Progress", color: "#3B82F6" },
-    priority: "LOW",
-    isCompleted: false,
-    project: "Backend",
-  }),
-  createTask({
-    id: "12",
-    name: "Design Registration UI",
-    desc: "Design Registration UI with examples and test cases",
-    startAt: "2025-06-20",
-    endAt: "2025-06-24",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Frontend",
-  }),
-  createTask({
-    id: "13",
-    name: "Research API tools",
-    desc: "Research API tools with examples and test cases",
-    startAt: "2025-06-01",
-    endAt: "2025-06-03",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "LOW",
-    isCompleted: true,
-    project: "Dashboard",
-  }),
-  createTask({
-    id: "14",
-    name: "Setup CI/CD for Admin Panel",
-    desc: "Setup CI/CD for Admin Panel with examples and test cases",
-    startAt: "2025-06-17",
-    endAt: "2025-06-21",
-    status: { id: "1", name: "Completed", color: "#3B82F6" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Dashboard",
-  }),
-  createTask({
-    id: "15",
-    name: "Refactor Login module",
-    desc: "Refactor Login module with examples and test cases",
-    startAt: "2025-06-28",
-    endAt: "2025-07-04",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Auth System",
-  }),
-  createTask({
-    id: "16",
-    name: "Deploy Reporting service",
-    desc: "Deploy Reporting service with examples and test cases",
-    startAt: "2025-06-13",
-    endAt: "2025-06-20",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "MEDIUM",
-    isCompleted: true,
-    project: "Reporting",
-  }),
-  createTask({
-    id: "17",
-    name: "Implement Admin Panel",
-    desc: "Implement Admin Panel with examples and test cases",
-    startAt: "2025-06-08",
-    endAt: "2025-06-14",
-    status: { id: "2", name: "In Progress", color: "#3B82F6" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Frontend",
-  }),
-  createTask({
-    id: "18",
-    name: "Document Login",
-    desc: "Document Login with examples and test cases",
-    startAt: "2025-06-03",
-    endAt: "2025-06-05",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Auth System",
-  }),
-  createTask({
-    id: "19",
-    name: "Fix bugs in Admin Panel",
-    desc: "Fix bugs in Admin Panel with examples and test cases",
-    startAt: "2025-06-18",
-    endAt: "2025-06-22",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "LOW",
-    isCompleted: false,
-    project: "Frontend",
-  }),
-  createTask({
-    id: "20",
-    name: "Refactor API module",
-    desc: "Refactor API module with examples and test cases",
-    startAt: "2025-06-24",
-    endAt: "2025-06-29",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "MEDIUM",
-    isCompleted: true,
-    project: "Backend",
-  }),
-  createTask({
-    id: "21",
-    name: "Deploy Login service",
-    desc: "Deploy Login service with examples and test cases",
-    startAt: "2025-06-16",
-    endAt: "2025-06-18",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "HIGH",
-    isCompleted: true,
-    project: "Auth System",
-  }),
-  createTask({
-    id: "22",
-    name: "Update Registration configs",
-    desc: "Update Registration configs with examples and test cases",
-    startAt: "2025-06-10",
-    endAt: "2025-06-11",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "LOW",
-    isCompleted: false,
-    project: "Notifications",
-  }),
-  createTask({
-    id: "23",
-    name: "Document API",
-    desc: "Document API with examples and test cases",
-    startAt: "2025-06-09",
-    endAt: "2025-06-10",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "MEDIUM",
-    isCompleted: true,
-    project: "Backend",
-  }),
-  createTask({
-    id: "24",
-    name: "Research Reporting tools",
-    desc: "Research Reporting tools with examples and test cases",
-    startAt: "2025-06-05",
-    endAt: "2025-06-06",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Reporting",
-  }),
-  createTask({
-    id: "25",
-    name: "Fix bugs in Dashboard",
-    desc: "Fix bugs in Dashboard with examples and test cases",
-    startAt: "2025-06-25",
-    endAt: "2025-06-28",
-    status: { id: "2", name: "Completed", color: "#3B82F6" },
-    priority: "LOW",
-    isCompleted: false,
-    project: "Dashboard",
-  }),
-  createTask({
-    id: "26",
-    name: "Setup CI/CD for Notification",
-    desc: "Setup CI/CD for Notification with examples and test cases",
-    startAt: "2025-06-14",
-    endAt: "2025-06-19",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "HIGH",
-    isCompleted: true,
-    project: "Notifications",
-  }),
-  createTask({
-    id: "27",
-    name: "Test Notification integration",
-    desc: "Test Notification integration with examples and test cases",
-    startAt: "2025-06-01",
-    endAt: "2025-06-02",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Notifications",
-  }),
-  createTask({
-    id: "28",
-    name: "Design Admin Panel UI",
-    desc: "Design Admin Panel UI with examples and test cases",
-    startAt: "2025-06-23",
-    endAt: "2025-06-27",
-    status: { id: "2", name: "Completed", color: "#10B981" },
-    priority: "LOW",
-    isCompleted: true,
-    project: "Frontend",
-  }),
-  createTask({
-    id: "29",
-    name: "Implement Notification",
-    desc: "Implement Notification with examples and test cases",
-    startAt: "2025-06-12",
-    endAt: "2025-06-15",
-    status: { id: "2", name: "Completed", color: "#3B82F6" },
-    priority: "HIGH",
-    isCompleted: false,
-    project: "Dashboard",
-  }),
-  createTask({
-    id: "30",
-    name: "Update Dashboard configs",
-    desc: "Update Dashboard configs with examples and test cases",
-    startAt: "2025-06-20",
-    endAt: "2025-06-23",
-    status: { id: "1", name: "In Progress", color: "#F59E0B" },
-    priority: "MEDIUM",
-    isCompleted: false,
-    project: "Dashboard",
-  }),
-];
+export async function defaultTasks(userId?: string): Promise<Task[]> {
+  const tasks = await getTasksForUser(userId);
+  console.log(tasks);
+
+  if (!tasks || tasks.length === 0) {
+    return [];
+  }
+
+  return tasks.map((task) =>
+    createTask({
+      id: task.id,
+      title: task.title,
+      desc: task.description || "",
+      startAt: task.start_date
+        ? new Date(task.start_date).toISOString()
+        : new Date().toISOString(),
+      endAt: task.due_date
+        ? new Date(task.due_date).toISOString()
+        : new Date().toISOString(),
+      status: {
+        id: String(task.status || "1"),
+        name: task.status === "completed" ? "Completed" : "In Progress",
+        color: task.status === "completed" ? "#10B981" : "#3B82F6",
+      },
+      priority: task.priority
+        ? (task.priority.toUpperCase() as Priority)
+        : "LOW",
+      isCompleted: task.status === "completed",
+      project: task.project.name,
+    })
+  );
+}

@@ -6,7 +6,15 @@ import { Checkbox } from "../ui/checkbox";
 import { Task, priorities, statuses } from "@/lib/data";
 import { DataTableColumnHeader } from "./data-table-column-header";
 import { DataTableRowActions } from "./data-table-row-actions";
-import { format, isValid, isToday, isThisWeek, isThisMonth, isBefore, startOfToday } from "date-fns";
+import {
+  format,
+  isValid,
+  isToday,
+  isThisWeek,
+  isThisMonth,
+  isBefore,
+  startOfToday,
+} from "date-fns";
 
 export const columns: ColumnDef<Task>[] = [
   {
@@ -30,9 +38,9 @@ export const columns: ColumnDef<Task>[] = [
             const updatedTask = {
               ...row.original,
               isCompleted: value,
-              status: value 
+              status: value
                 ? { id: "2", name: "Completed", color: "#10B981" }
-                : { id: "1", name: "In Progress", color: "#F59E0B" }
+                : { id: "1", name: "In Progress", color: "#F59E0B" },
             };
             row.original.isCompleted = value;
             row.original.status = updatedTask.status;
@@ -55,11 +63,15 @@ export const columns: ColumnDef<Task>[] = [
       const task = row.original;
       return (
         <div className="flex flex-col">
-          <span className={`font-medium ${task.isCompleted ? "line-through text-gray-500" : ""}`}>
-            {task.name}
+          <span
+            className={`font-medium ${task.isCompleted ? "line-through text-gray-500" : ""}`}
+          >
+            {task.title}
           </span>
           {task.desc && (
-            <span className={`text-sm text-gray-500 ${task.isCompleted ? "line-through" : ""}`}>
+            <span
+              className={`text-sm text-gray-500 ${task.isCompleted ? "line-through" : ""}`}
+            >
               {task.desc}
             </span>
           )}
@@ -77,12 +89,15 @@ export const columns: ColumnDef<Task>[] = [
     cell: ({ row }) => {
       const statusId = row.getValue("status") as string;
       const status = row.original.status;
-      const statusDef = statuses.find(s => s.value === statusId);
+      const statusDef = statuses.find((s) => s.value === statusId);
 
       return (
         <div className="flex w-[100px] items-center">
           {statusDef?.icon && (
-            <statusDef.icon className="mr-2 h-4 w-4" style={{ color: statusDef.color }} />
+            <statusDef.icon
+              className="mr-2 h-4 w-4"
+              style={{ color: statusDef.color }}
+            />
           )}
           <span style={{ color: statusDef?.color }}>{status.name}</span>
         </div>
@@ -128,31 +143,32 @@ export const columns: ColumnDef<Task>[] = [
     cell: ({ row }) => {
       const value = row.getValue("endAt");
       let date: Date;
-      
+
       // Handle both string and Date types
       if (value instanceof Date) {
         date = value;
-      } else if (typeof value === 'string') {
+      } else if (typeof value === "string") {
         date = new Date(value);
       } else {
         return <div className="text-gray-500">Invalid date</div>;
       }
-      
+
       if (!isValid(date)) {
         return <div className="text-gray-500">Invalid date</div>;
       }
-      
+
       return <div>{format(date, "MMM d, yyyy")}</div>;
     },
     filterFn: (row, id, filterValue: { type: "relative"; value: string }) => {
       const value = row.getValue(id);
       if (!value) return false;
-      
-      const taskDate = value instanceof Date ? value : new Date(value as string);
+
+      const taskDate =
+        value instanceof Date ? value : new Date(value as string);
       if (!isValid(taskDate)) return false;
 
       const today = startOfToday();
-      
+
       switch (filterValue.value) {
         case "today":
           return isToday(taskDate);
@@ -176,9 +192,7 @@ export const columns: ColumnDef<Task>[] = [
     ),
     cell: ({ row }) => {
       const project = row.getValue("project") as string;
-      return project ? (
-        <Badge variant="outline">{project}</Badge>
-      ) : null;
+      return project ? <Badge variant="outline">{project}</Badge> : null;
     },
   },
   {

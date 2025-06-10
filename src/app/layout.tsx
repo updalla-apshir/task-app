@@ -42,7 +42,7 @@ export default function RootLayout({
                 disableTransitionOnChange
                 storageKey="task-app-theme"
               >
-                <TaskProvider>
+                <TaskProvider initialTasks={[]}>
                   {shouldUseLayout ? (
                     <LayoutWrapper>{children}</LayoutWrapper>
                   ) : (
