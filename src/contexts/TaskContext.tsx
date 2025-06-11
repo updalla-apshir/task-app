@@ -27,6 +27,14 @@ export function TaskProvider({
   const [tasks, setTasks] = useState<Task[]>(Array.isArray(initialTasks) ? initialTasks : []);
   const [loading, setLoading] = useState(typeof initialTasks === 'function');
 
+  // Update tasks whenever initialTasks changes (if it's an array)
+  useEffect(() => {
+    if (Array.isArray(initialTasks)) {
+      setTasks(initialTasks);
+    }
+  }, [initialTasks]);
+
+  // Handle async initialTasks
   useEffect(() => {
     const loadTasks = async () => {
       if (typeof initialTasks === 'function') {
@@ -47,12 +55,17 @@ export function TaskProvider({
   }, [initialTasks, session?.user?.id]);
 
   const updateTask = useCallback((updatedTask: Task) => {
+    // Update local state
     setTasks((prevTasks) =>
       prevTasks.map((task) =>
         task.id === updatedTask.id ? updatedTask : task
       )
     );
-    onUpdateTask?.(updatedTask);
+    
+    // Call parent handler if provided
+    if (onUpdateTask) {
+      onUpdateTask(updatedTask);
+    }
   }, [onUpdateTask]);
 
   return (

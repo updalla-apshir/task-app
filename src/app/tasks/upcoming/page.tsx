@@ -12,25 +12,42 @@ import { useValue, ValueProvider } from "@/contexts/useContext";
 import { TaskProvider } from "@/contexts/TaskContext";
 import { Calendar } from "lucide-react";
 import { isAfter, isBefore, startOfToday, endOfWeek } from "date-fns";
+import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 
 function UpcomingTasksContent() {
   const { value } = useValue();
   const [open, setOpen] = React.useState(false);
-  const [tasks, setTasks] = React.useState<Task[]>(() => {
-    const today = startOfToday();
-    const weekEnd = endOfWeek(today);
-    return defaultTasks.filter((task) => {
-      const taskDate = new Date(task.endAt);
-      return isAfter(taskDate, today) && isBefore(taskDate, weekEnd);
-    });
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+  
+  // Use React Query to fetch tasks
+  const { 
+    data: allTasks = [], 
+    isLoading 
+  } = useQuery<Task[]>({
+    queryKey: ["tasks", userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      return await defaultTasks(userId);
+    },
+    enabled: !!userId,
+    staleTime: 30000,
   });
 
+  // Filter for upcoming tasks
+  const tasks = React.useMemo(() => {
+    const today = startOfToday();
+    const weekEnd = endOfWeek(today);
+    return allTasks.filter((task) => {
+      if (!task.due_date) return false;
+      const taskDate = new Date(task.due_date);
+      return isAfter(taskDate, today) && isBefore(taskDate, weekEnd);
+    });
+  }, [allTasks]);
+
   const handleTaskUpdate = (updatedTask: Task) => {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
+    // This will be handled by the TaskProvider and parent components
   };
 
   const completedTasks = tasks.filter(task => task.isCompleted);
@@ -41,6 +58,10 @@ function UpcomingTasksContent() {
   const highPriority = tasks.filter(task => task.priority === "HIGH").length;
   const mediumPriority = tasks.filter(task => task.priority === "MEDIUM").length;
   const lowPriority = tasks.filter(task => task.priority === "LOW").length;
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Loading tasks...</div>;
+  }
 
   return (
     <div className="flex flex-col h-screen">

@@ -6,7 +6,6 @@ enum Role {
 
 enum TaskStatus {
   pending
-  in_progress
   completed
 }
 
@@ -112,8 +111,8 @@ model Task {
   updated_at   DateTime     @updatedAt
   created_by   String       @db.ObjectId
   project_id   String       @db.ObjectId
+  is_completed Boolean      @default(false)
   is_archived  Boolean      @default(false)
-  is_Completed Boolean      @default(false)
 
   createdBy User    @relation("CreatedTasks", fields: [created_by], references: [id])
   project   Project @relation(fields: [project_id], references: [id])

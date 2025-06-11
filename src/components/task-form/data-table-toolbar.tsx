@@ -31,16 +31,16 @@ export function DataTableToolbar<TData>({
 
   const statusColumn = table.getColumn("status");
   const priorityColumn = table.getColumn("priority");
-  const endAtColumn = table.getColumn("endAt");
+  const dueDateColumn = table.getColumn("due_date");
 
   return (
     <div className="flex items-center justify-between">
       <div className="flex flex-1 items-center space-x-2">
         <Input
           placeholder="Filter tasks..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
+            table.getColumn("title")?.setFilterValue(event.target.value)
           }
           className="h-8 w-[150px] lg:w-[250px]"
         />
@@ -58,9 +58,9 @@ export function DataTableToolbar<TData>({
             options={[...priorities]}
           />
         )}
-        {endAtColumn && (
+        {dueDateColumn && (
           <DataTableDateFilter
-            column={endAtColumn}
+            column={dueDateColumn}
             title="Due Date"
           />
         )}

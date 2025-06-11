@@ -11,6 +11,8 @@ import {
 } from "./kanban";
 
 import { Task, Priority } from "@/lib/data";
+import { updateTaskCompletionStatus } from "../../../actions/task";
+import { toast } from "sonner";
 
 import {
   DndContext,
@@ -42,6 +44,7 @@ import {
   startOfToday,
   isValid,
 } from "date-fns";
+import { useValue } from "@/contexts/useContext";
 
 // Define priorities with proper typing
 const priorityColumns: Array<{ id: Priority; name: string; color: string }> = [
@@ -125,9 +128,11 @@ function TaskKanbanContent({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  const { value, setValue } = useValue();
 
   // Filter tasks based on criteria
   const filteredTasks = tasks
+    .filter(task => !task.deleted) // Filter out deleted tasks
     .filter((f) => !selectedPriority || f.priority === selectedPriority)
     .filter((f) => {
       if (completionFilter === "all") return true;
@@ -258,7 +263,12 @@ function TaskKanbanContent({
           </div>
 
           {/* List View Button */}
-          <Button variant="outline" size="sm" className="ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setValue("task")}
+          >
             <SlidersHorizontal className="mr-2 h-4 w-4" />
             List View
           </Button>
@@ -345,11 +355,26 @@ function TaskKanbanContent({
                     project={task.project}
                     index={index}
                     parent={priority.id}
-                    onToggleComplete={(id) => {
+                    onToggleComplete={async (id) => {
+                      // Create updated task with toggled completion status
                       const updatedTask = {
                         ...task,
                         isCompleted: !task.isCompleted,
+                        status: !task.isCompleted
+                          ? {
+                              id: "2",
+                              name: "Completed",
+                              color: "#10B981",
+                            }
+                          : {
+                              id: "1",
+                              name: "In Progress",
+                              color: "#3B82F6",
+                            },
+                        isOptimistic: true
                       };
+                      
+                      // Use the context's updateTask which is connected to the shared handler
                       updateTask(updatedTask);
                     }}
                   >

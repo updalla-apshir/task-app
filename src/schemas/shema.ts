@@ -43,10 +43,27 @@ export const projectSchema = z.object({
   endDate: z.date().optional(),
   status: projectStatusEnum,
   priority: projectPriority,
-  createdAt: z.date().optional().default(() => new Date()),
-  updatedAt: z.date().optional().default(() => new Date()),
+  createdAt: z
+    .date()
+    .optional()
+    .default(() => new Date()),
+  updatedAt: z
+    .date()
+    .optional()
+    .default(() => new Date()),
   ownerId: z.string(),
   assignedTo: z.array(z.string()),
   owner: z.any().optional(),
   team: z.any().optional(),
+});
+
+export const taskSchema = z.object({
+  title: z.string().min(1, "Task title is required"),
+  description: z.string().optional(),
+  status: z.enum(["completed", "pending"]),
+  priority: projectPriority,
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  createdAt: z.date(),
+  projectId: z.string(),
 });

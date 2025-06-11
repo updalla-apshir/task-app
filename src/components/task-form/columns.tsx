@@ -6,6 +6,8 @@ import { Checkbox } from "../ui/checkbox";
 import { Task, priorities, statuses } from "@/lib/data";
 import { DataTableColumnHeader } from "./data-table-column-header";
 import { DataTableRowActions } from "./data-table-row-actions";
+import { updateTaskCompletionStatus } from "../../../actions/task";
+import { toast } from "sonner";
 import {
   format,
   isValid,
@@ -33,18 +35,39 @@ export const columns: ColumnDef<Task>[] = [
     cell: ({ row, table }) => (
       <Checkbox
         checked={row.original.isCompleted}
-        onCheckedChange={(value) => {
+        onCheckedChange={async (value) => {
           if (typeof value === "boolean") {
-            const updatedTask = {
-              ...row.original,
-              isCompleted: value,
-              status: value
-                ? { id: "2", name: "Completed", color: "#10B981" }
-                : { id: "1", name: "In Progress", color: "#F59E0B" },
-            };
-            row.original.isCompleted = value;
-            row.original.status = updatedTask.status;
-            (table.options.meta as any)?.onTaskUpdate?.(updatedTask);
+            // Capture task ID upfront for better debugging
+            const taskId = row.original.id;
+            console.log(`Checkbox changed for task ${taskId}:`, value);
+            
+            try {
+              // First call the API directly
+              console.log(`Calling updateTaskCompletionStatus directly for ${taskId}`);
+              const result = await updateTaskCompletionStatus(taskId, value);
+              console.log("Direct API call result:", result);
+              
+              if (result.success) {
+                // Now update UI
+                const updatedTask = {
+                  ...row.original,
+                  isCompleted: value,
+                  status: value
+                    ? { id: "2", name: "Completed", color: "#10B981" }
+                    : { id: "1", name: "In Progress", color: "#F59E0B" },
+                  isOptimistic: true
+                };
+                
+                // Update UI via React Query
+                (table.options.meta as any)?.onTaskUpdate?.(updatedTask);
+              } else {
+                console.error("Failed to update task directly:", result.error);
+                toast.error("Failed to update task: " + result.error);
+              }
+            } catch (err) {
+              console.error("Error during direct task update:", err);
+              toast.error("Error updating task");
+            }
           }
         }}
         aria-label="Select row"
@@ -55,7 +78,7 @@ export const columns: ColumnDef<Task>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "name",
+    accessorKey: "title",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Task" />
     ),
@@ -136,12 +159,12 @@ export const columns: ColumnDef<Task>[] = [
     },
   },
   {
-    accessorKey: "endAt",
+    accessorKey: "due_date",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Due Date" />
     ),
     cell: ({ row }) => {
-      const value = row.getValue("endAt");
+      const value = row.getValue("due_date");
       let date: Date;
 
       // Handle both string and Date types
@@ -191,8 +214,13 @@ export const columns: ColumnDef<Task>[] = [
       <DataTableColumnHeader column={column} title="Project" />
     ),
     cell: ({ row }) => {
-      const project = row.getValue("project") as string;
-      return project ? <Badge variant="outline">{project}</Badge> : null;
+      const project = row.getValue("project");
+      // Handle both string and object formats
+      const projectName = typeof project === 'object' && project !== null
+        ? (project as any).name || "Unknown Project"
+        : project as string || "Unknown Project";
+        
+      return projectName ? <Badge variant="outline">{projectName}</Badge> : null;
     },
   },
   {

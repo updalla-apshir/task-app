@@ -61,6 +61,8 @@ export type Task = {
   priority: Priority;
   isCompleted: boolean;
   project: string;
+  isOptimistic?: boolean;
+  deleted?: boolean;
 };
 
 // Helper function to ensure dates are properly formatted
@@ -77,16 +79,63 @@ function createTask(
   };
 }
 
+// Helper function to ensure task data from form is properly formatted
+export function formatTaskFromForm(taskData: any): Task {
+  // Check for status coming from the checkbox
+  const isCompleted = typeof taskData.status === 'string' 
+    ? taskData.status === "completed" 
+    : (taskData.status && (taskData.status.name === "Completed" || taskData.status.id === "2"));
+  
+  // Get project name, handling different formats
+  const projectName = typeof taskData.project === 'object' && taskData.project !== null
+    ? taskData.project.name
+    : typeof taskData.project === 'string'
+      ? taskData.project
+      : "Unknown Project";
+  
+  // Handle the case where isCompleted is explicitly provided
+  const completed = typeof taskData.is_completed === 'boolean' 
+    ? taskData.is_completed 
+    : isCompleted;
+  
+  return {
+    id: taskData.id || `temp-${Date.now()}`,
+    title: taskData.title || "",
+    desc: taskData.description || "",
+    start_date: taskData.startDate || taskData.start_date || new Date(),
+    due_date: taskData.endDate || taskData.due_date || new Date(),
+    status: {
+      id: completed ? "2" : "1",
+      name: completed ? "Completed" : "In Progress",
+      color: completed ? "#10B981" : "#3B82F6",
+    },
+    priority: typeof taskData.priority === 'string' 
+      ? taskData.priority.toUpperCase() 
+      : "MEDIUM",
+    isCompleted: completed,
+    project: projectName,
+    isOptimistic: !!taskData.isOptimistic,
+    deleted: !!taskData.deleted
+  };
+}
+
 export async function defaultTasks(userId?: string): Promise<Task[]> {
   const tasks = await getTasksForUser(userId);
-  console.log(tasks);
 
   if (!tasks || tasks.length === 0) {
     return [];
   }
 
-  return tasks.map((task) =>
-    createTask({
+  console.log("Raw tasks from database:", tasks);
+
+  return tasks.map((task) => {
+    // Convert database tasks to frontend Task format
+    // Use the status field to determine completion since is_completed might not be in the TypeScript types
+    const isCompleted = task.status === "completed";
+    
+    console.log(`Task ${task.id} status: ${task.status}, final isCompleted: ${isCompleted}`);
+    
+    return createTask({
       id: task.id,
       title: task.title,
       desc: task.description || "",
@@ -97,15 +146,15 @@ export async function defaultTasks(userId?: string): Promise<Task[]> {
         ? new Date(task.due_date).toISOString()
         : new Date().toISOString(),
       status: {
-        id: String(task.status || "1"),
-        name: task.status === "completed" ? "Completed" : "In Progress",
-        color: task.status === "completed" ? "#10B981" : "#3B82F6",
+        id: String(isCompleted ? 2 : 1),
+        name: isCompleted ? "Completed" : "In Progress",
+        color: isCompleted ? "#10B981" : "#3B82F6",
       },
       priority: task.priority
         ? (task.priority.toUpperCase() as Priority)
         : "LOW",
-      isCompleted: task.status === "completed",
-      project: task.project.name,
+      isCompleted: isCompleted,
+      project: task.project?.name || "Uncategorized",
     })
-  );
+  });
 }

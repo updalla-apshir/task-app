@@ -179,7 +179,10 @@ export const KanbanCard = ({
       </div>
 
       {/* Due Date */}
-      <p className="text-xs text-gray-500 mb-2">
+      <p className={cn(
+        "text-xs text-gray-500 mb-2",
+        isCompleted && "text-gray-400"
+      )}>
         Due: <time dateTime={date.toISOString()}>{formattedDate}</time>
       </p>
 

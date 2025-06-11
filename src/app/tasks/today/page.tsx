@@ -9,30 +9,52 @@ import TaskKanban from "@/components/task-kanbanView/kanbanView";
 import { useValue, ValueProvider } from "@/contexts/useContext";
 import { TaskProvider } from "@/contexts/TaskContext";
 import { CalendarDays } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 
 function TodayTasksContent() {
   const { value } = useValue();
-  const [tasks, setTasks] = React.useState<Task[]>(() => {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+  
+  // Use React Query to fetch tasks
+  const { 
+    data: allTasks = [], 
+    isLoading 
+  } = useQuery<Task[]>({
+    queryKey: ["tasks", userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      return await defaultTasks(userId);
+    },
+    enabled: !!userId,
+    staleTime: 30000,
+  });
+
+  // Filter for today's tasks
+  const tasks = React.useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return defaultTasks.filter((task) => {
-      const taskDate = new Date(task.endAt);
+    
+    return allTasks.filter((task) => {
+      if (!task.due_date) return false;
+      const taskDate = new Date(task.due_date);
       taskDate.setHours(0, 0, 0, 0);
       return taskDate.getTime() === today.getTime();
     });
-  });
+  }, [allTasks]);
 
   const handleTaskUpdate = (updatedTask: Task) => {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
+    // This will be handled by the TaskProvider and parent components
   };
 
   const completedTasks = tasks.filter(task => task.isCompleted);
   const totalTasks = tasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Loading tasks...</div>;
+  }
 
   return (
     <div className="flex flex-col h-screen">
