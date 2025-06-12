@@ -14,7 +14,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MailIcon, PhoneIcon, User2Icon, Upload, X, Camera } from "lucide-react";
+import {
+  MailIcon,
+  PhoneIcon,
+  User2Icon,
+  Upload,
+  X,
+  Camera,
+} from "lucide-react";
 import {
   getUserProfile,
   updateUserProfile,
@@ -210,7 +217,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 space-y-8">
+      <div className=" mx-4 py-8 space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Profile</h1>
         </div>
@@ -222,7 +229,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className=" mx-4 py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Profile</h1>
       </div>
@@ -307,7 +314,7 @@ export default function ProfilePage() {
                               .toUpperCase() || "U"}
                           </AvatarFallback>
                         </Avatar>
-                        
+
                         {/* Camera overlay button */}
                         <button
                           type="button"
