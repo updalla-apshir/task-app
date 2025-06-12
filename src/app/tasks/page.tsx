@@ -54,6 +54,32 @@ function TasksPageContent() {
     }
   }, [tasks]);
 
+  // Handle task form submission
+  const handleTaskSubmit = React.useCallback((task: any) => {
+    console.log("Task submitted:", task);
+    
+    // Update local state immediately for optimistic UI
+    if (!task.error) {
+      if (task.id.startsWith('temp-')) {
+        // New task - add to local state
+        setLocalTasks(prev => [...prev, task]);
+      } else {
+        // Updated task - update in local state
+        setLocalTasks(prev => 
+          prev.map(t => t.id === task.id ? task : t)
+        );
+      }
+    }
+    
+    // Refresh data from server with a slight delay to ensure server has processed the change
+    setTimeout(() => {
+      refetch();
+    }, 300);
+    
+    // Close the dialog if open
+    if (open) setOpen(false);
+  }, [refetch, open]);
+
   // Shared task update handler
   const handleTaskUpdate = React.useCallback(async (updatedTask: Task) => {
     try {
@@ -76,16 +102,36 @@ function TasksPageContent() {
           try {
             const isCompleted = updatedTask.isCompleted;
             console.log(`Updating task ${updatedTask.id} completion status to ${isCompleted} (from form)`);
+            
+            // Show loading toast
+            const toastId = toast.loading("Updating task status...", { duration: 1500 });
+            
             const result = await updateTaskCompletionStatus(updatedTask.id, isCompleted);
             
             if (!result.success) {
               throw new Error(result.error || "Unknown error");
             }
+            
+            // Update toast to success
+            toast.success(isCompleted ? "Task completed!" : "Task marked as in progress", {
+              id: toastId,
+              duration: 2000
+            });
+            
+            // Refresh data after update
+            refetch();
           } catch (err) {
             console.error('Failed to update task status in DB:', err);
-            toast.error("Failed to update task status in database");
+            toast.error("Failed to update task status in database", {
+              duration: 3000
+            });
           }
         }
+        
+        // Refresh data after any optimistic update
+        setTimeout(() => {
+          refetch();
+        }, 300);
         return;
       }
       
@@ -96,23 +142,44 @@ function TasksPageContent() {
         // Update the server
         const isCompleted = updatedTask.isCompleted;
         console.log(`Updating task ${updatedTask.id} completion status to ${isCompleted} (direct)`);
+        
+        // Show loading toast
+        const toastId = toast.loading("Updating task status...", { duration: 1500 });
+        
         const result = await updateTaskCompletionStatus(updatedTask.id, isCompleted);
         
         if (result.success) {
-          toast.success(isCompleted ? "Task completed!" : "Task marked as in progress");
+          // Update toast to success
+          toast.success(isCompleted ? "Task completed!" : "Task marked as in progress", {
+            id: toastId,
+            duration: 2000
+          });
+          
+          // Refresh data after update with a slight delay
+          setTimeout(() => {
+            refetch();
+          }, 300);
         } else {
-          toast.error(result.error || "Failed to update task");
+          // Update toast to error
+          toast.error(result.error || "Failed to update task", {
+            id: toastId,
+            duration: 3000
+          });
+          
           // Revert local state on error
           setLocalTasks(tasks);
         }
       }
     } catch (error) {
       console.error("Failed to update task:", error);
-      toast.error("An error occurred while updating the task");
+      toast.error("An error occurred while updating the task", {
+        duration: 3000
+      });
+      
       // Revert on error
       setLocalTasks(tasks);
     }
-  }, [tasks, setLocalTasks]);
+  }, [tasks, setLocalTasks, refetch]);
 
   if (isLoading) {
     return <div className="p-8 text-center">Loading tasks...</div>;
@@ -144,7 +211,12 @@ function TasksPageContent() {
               >
                 Add Task
               </Button>
-              <TaskForm open={open} setOpen={setOpen} />
+              <TaskForm 
+                open={open} 
+                setOpen={setOpen} 
+                onSubmit={handleTaskSubmit}
+                currentUserId={userId}
+              />
             </div>
           </div>
         </div>

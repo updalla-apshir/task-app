@@ -28,6 +28,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { updateTaskCompletionStatus } from "../../../actions/task";
+import { getProjects } from "../../../actions/project";
 
 const priorityColorMap: Record<string, string> = {
   // Uppercase keys (from frontend)
@@ -53,9 +54,31 @@ function CalendarPageContent() {
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   const [showTaskModal, setShowTaskModal] = React.useState(false);
   const [showEditTaskModal, setShowEditTaskModal] = React.useState(false);
+  const [availableProjects, setAvailableProjects] = React.useState<any[]>([]);
   
   const { data: session } = useSession();
   const userId = session?.user?.id;
+  
+  // Fetch projects when needed
+  const fetchProjects = React.useCallback(async () => {
+    if (userId) {
+      try {
+        const projects = await getProjects();
+        console.log("Calendar: Projects fetched:", projects);
+        setAvailableProjects(projects);
+        return projects;
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+        return [];
+      }
+    }
+    return [];
+  }, [userId]);
+  
+  // Fetch projects when the component mounts
+  React.useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
   
   // Fetch tasks query
   const {
@@ -84,38 +107,67 @@ function CalendarPageContent() {
       // For completion status changes
       if (typeof updatedTask.isCompleted === 'boolean') {
         try {
+          // Show loading toast
+          const toastId = toast.loading("Updating task status...", { duration: 1500 });
+          
           const result = await updateTaskCompletionStatus(updatedTask.id, updatedTask.isCompleted);
           
           if (result.success) {
-            toast.success(updatedTask.isCompleted ? "Task completed!" : "Task marked as in progress");
-            refetch();
+            // Update toast to success
+            toast.success(updatedTask.isCompleted ? "Task completed!" : "Task marked as in progress", {
+              id: toastId,
+              duration: 2000
+            });
+            
+            // Refresh data after update with a slight delay
+            setTimeout(() => {
+              refetch();
+            }, 300);
           } else {
+            // Update toast to error
+            toast.error(result.error || "Failed to update task", {
+              id: toastId,
+              duration: 3000
+            });
+            
             throw new Error(result.error || "Unknown error");
           }
         } catch (err) {
           console.error('Failed to update task status:', err);
-          toast.error("Failed to update task status");
+          toast.error("Failed to update task status", {
+            duration: 3000
+          });
         }
       }
       
       // For other updates (from form)
       if (updatedTask.isOptimistic) {
         console.log("Handling optimistic update in calendar:", updatedTask);
-        refetch();
+        setTimeout(() => {
+          refetch();
+        }, 300);
       }
     } catch (error) {
       console.error("Failed to update task:", error);
-      toast.error("An error occurred while updating the task");
+      toast.error("An error occurred while updating the task", {
+        duration: 3000
+      });
     }
   }, [refetch]);
 
   // Handle task form submission
-  const handleTaskSubmit = React.useCallback((task: Task) => {
-    console.log("Task submitted:", task);
-    refetch();
-    if (showEditTaskModal) setShowEditTaskModal(false);
+  const handleTaskSubmit = React.useCallback((task: any) => {
+    console.log("Task submitted in calendar:", task);
+    
+    // Refresh data from server with a slight delay to ensure server has processed the change
+    setTimeout(() => {
+      refetch();
+    }, 300);
+    
+    // Close the dialogs if open
     if (showAddTaskModal) setShowAddTaskModal(false);
-  }, [refetch, showEditTaskModal, showAddTaskModal]);
+    if (showEditTaskModal) setShowEditTaskModal(false);
+  }, [refetch, showAddTaskModal, showEditTaskModal]);
 
   // Filter tasks for the current month
   const currentMonthTasks = React.useMemo(() => {
@@ -155,6 +207,29 @@ function CalendarPageContent() {
   const openTaskDetails = (task: Task) => {
     setSelectedTask(task);
     setShowTaskModal(true);
+  };
+
+  // Prepare task data for editing
+  const prepareTaskForEdit = (task: Task) => {
+    console.log("Preparing task for edit:", task);
+    
+    // Find a default project ID if available
+    let projectId = "";
+    if (availableProjects && availableProjects.length > 0) {
+      projectId = availableProjects[0].id;
+    }
+    
+    // Convert project string to project_id
+    // This is needed because the task form expects project_id but our Task type has project as string
+    return {
+      ...task,
+      // Add project_id field using the first available project
+      project_id: projectId,
+      // Ensure priority is in the correct format (Low, Medium, High)
+      priority: task.priority === "HIGH" ? "High" : task.priority === "MEDIUM" ? "Medium" : task.priority === "LOW" ? "Low" : task.priority,
+      // Ensure description is available
+      description: task.desc
+    };
   };
 
   // Days of the current month
@@ -423,6 +498,7 @@ function CalendarPageContent() {
         selectedDate={selectedDay}
         onSubmit={handleTaskSubmit}
         currentUserId={userId}
+        projects={availableProjects}
       />
       
       {/* Edit Task Modal */}
@@ -430,9 +506,10 @@ function CalendarPageContent() {
         <TaskForm 
           open={showEditTaskModal} 
           setOpen={setShowEditTaskModal} 
-          initialData={selectedTask}
+          initialData={prepareTaskForEdit(selectedTask)}
           onSubmit={handleTaskSubmit}
           currentUserId={userId}
+          projects={availableProjects}
         />
       )}
       

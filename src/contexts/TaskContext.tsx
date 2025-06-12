@@ -3,10 +3,13 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { Task, defaultTasks } from "@/lib/data";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface TaskContextType {
   tasks: Task[];
   updateTask: (updatedTask: Task) => void;
+  addTask: (newTask: Task) => void;
+  refreshTasks: () => Promise<void>;
   loading: boolean;
 }
 
@@ -26,6 +29,7 @@ export function TaskProvider({
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>(Array.isArray(initialTasks) ? initialTasks : []);
   const [loading, setLoading] = useState(typeof initialTasks === 'function');
+  const [lastRefresh, setLastRefresh] = useState<number>(Date.now());
 
   // Update tasks whenever initialTasks changes (if it's an array)
   useEffect(() => {
@@ -34,33 +38,64 @@ export function TaskProvider({
     }
   }, [initialTasks]);
 
+  // Load tasks from the server with debouncing to prevent multiple rapid refreshes
+  const refreshTasks = useCallback(async () => {
+    const now = Date.now();
+    // Prevent refreshing more than once every 500ms
+    if (now - lastRefresh < 500) {
+      return;
+    }
+    
+    setLastRefresh(now);
+    setLoading(true);
+    
+    try {
+      const userId = session?.user?.id;
+      const tasksData = await defaultTasks(userId);
+      
+      // Only update if we got data back
+      if (tasksData && tasksData.length > 0) {
+        setTasks(tasksData);
+      }
+    } catch (error) {
+      console.error("Failed to load tasks:", error);
+      toast.error("Failed to refresh tasks", {
+        duration: 2000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?.id, lastRefresh]);
+
   // Handle async initialTasks
   useEffect(() => {
     const loadTasks = async () => {
       if (typeof initialTasks === 'function') {
-        setLoading(true);
-        try {
-          const userId = session?.user?.id;
-          const tasksData = await defaultTasks(userId);
-          setTasks(tasksData);
-        } catch (error) {
-          console.error("Failed to load tasks:", error);
-        } finally {
-          setLoading(false);
-        }
+        await refreshTasks();
       }
     };
 
     loadTasks();
-  }, [initialTasks, session?.user?.id]);
+  }, [initialTasks, refreshTasks]);
 
   const updateTask = useCallback((updatedTask: Task) => {
-    // Update local state
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
+    console.log("TaskContext: Updating task", updatedTask);
+    
+    // Update local state immediately for responsive UI
+    setTasks((prevTasks) => {
+      // Check if the task exists
+      const taskExists = prevTasks.some(task => task.id === updatedTask.id);
+      
+      if (taskExists) {
+        // Update existing task
+        return prevTasks.map((task) =>
+          task.id === updatedTask.id ? updatedTask : task
+        );
+      } else {
+        // Add new task if it doesn't exist
+        return [...prevTasks, updatedTask];
+      }
+    });
     
     // Call parent handler if provided
     if (onUpdateTask) {
@@ -68,8 +103,31 @@ export function TaskProvider({
     }
   }, [onUpdateTask]);
 
+  const addTask = useCallback((newTask: Task) => {
+    console.log("TaskContext: Adding task", newTask);
+    
+    // Add to local state
+    setTasks((prevTasks) => {
+      // Check if task with this ID already exists
+      const taskExists = prevTasks.some(task => task.id === newTask.id);
+      if (taskExists) {
+        // Update it instead of adding a duplicate
+        return prevTasks.map(task => 
+          task.id === newTask.id ? newTask : task
+        );
+      }
+      // Add new task
+      return [...prevTasks, newTask];
+    });
+    
+    // Call parent handler if provided
+    if (onUpdateTask) {
+      onUpdateTask(newTask);
+    }
+  }, [onUpdateTask]);
+
   return (
-    <TaskContext.Provider value={{ tasks, updateTask, loading }}>
+    <TaskContext.Provider value={{ tasks, updateTask, addTask, refreshTasks, loading }}>
       {children}
     </TaskContext.Provider>
   );

@@ -50,6 +50,7 @@ import { FormDescription } from "@/components/ui/form";
 import { useSession } from "next-auth/react";
 import { Priority } from "@/lib/data";
 import { TaskPriority } from "@prisma/client";
+import { useTasks } from "@/contexts/TaskContext";
 
 // Define a schema for our form that matches the form fields
 const formSchema = z.object({
@@ -97,86 +98,56 @@ export function TaskForm({
   const isEditMode = !!initialData;
   const { data: session } = useSession();
   const userId = session?.user?.id;
+  const { refreshTasks } = useTasks();
 
   // Fetch projects only once and cache them
   const fetchProjects = useCallback(async () => {
     try {
-      // Check if we already have projects in state
-      if (projects.length > 0) return;
-
-      // Check if we have cached projects in localStorage
-      const cachedProjectsData = localStorage.getItem("projects");
-      if (cachedProjectsData) {
-        const parsedProjects = JSON.parse(cachedProjectsData);
-        if (parsedProjects.length > 0) {
-          setProjects(parsedProjects);
-
-          // Create a map for quick lookups
-          const projectMap = parsedProjects.reduce(
-            (acc: any, project: Project) => {
-              acc[project.id] = project;
-              return acc;
-            },
-            {}
-          );
-          setCachedProjects(projectMap);
-
-          // Still fetch in background to update cache
-          getProjects().then((freshProjects) => {
-            if (freshProjects && freshProjects.length > 0) {
-              setProjects(freshProjects);
-              localStorage.setItem("projects", JSON.stringify(freshProjects));
-
-              // Update the map
-              const updatedMap = freshProjects.reduce(
-                (acc: any, project: Project) => {
-                  acc[project.id] = project;
-                  return acc;
-                },
-                {}
-              );
-              setCachedProjects(updatedMap);
-            }
-          });
-          return;
-        }
-      }
-
+      console.log("Fetching projects...");
+      setIsLoading(true);
+      
       // Fetch projects if no cache
       const projectsData = await getProjects();
+      console.log("Projects fetched:", projectsData);
+      
       if (projectsData && projectsData.length > 0) {
         setProjects(projectsData);
-        localStorage.setItem("projects", JSON.stringify(projectsData));
-
+        
         // Create a map for quick lookups
         const projectMap = projectsData.reduce((acc: any, project: Project) => {
           acc[project.id] = project;
           return acc;
         }, {});
         setCachedProjects(projectMap);
+        
+        // Store in localStorage for future use
+        localStorage.setItem("projects", JSON.stringify(projectsData));
+      } else {
+        console.warn("No projects returned from API");
       }
     } catch (error) {
       console.error("Error fetching projects:", error);
       toast.error("Failed to load projects");
+    } finally {
+      setIsLoading(false);
     }
-  }, [projects]);
+  }, []);
 
-  // Fetch projects when component mounts
+  // Fetch projects when component mounts or when dialog opens
   useEffect(() => {
-    if (initialProjects.length === 0) {
+    if (open) {
       fetchProjects();
-    } else {
-      // Create a map for the initial projects
-      const projectMap = initialProjects.reduce(
-        (acc: any, project: Project) => {
-          acc[project.id] = project;
-          return acc;
-        },
-        {}
-      );
-      setCachedProjects(projectMap);
     }
-  }, [initialProjects, fetchProjects]);
+  }, [open, fetchProjects]);
+
+  // Debug initialData
+  useEffect(() => {
+    if (initialData) {
+      console.log("TaskForm initialData:", initialData);
+      console.log("Project ID from initialData:", initialData.project_id);
+      console.log("Available projects:", projects);
+    }
+  }, [initialData, projects]);
 
   const form = useForm<LocalFormValues>({
     resolver: zodResolver(formSchema),
@@ -201,9 +172,18 @@ export function TaskForm({
         },
   });
 
-  // Reset form when initialData changes
+  // Reset form when initialData changes or when projects are loaded
   useEffect(() => {
     if (initialData) {
+      // Find a default project if none is specified
+      let projectId = initialData.project_id || "";
+      
+      // If no project_id is specified but projects are available, use the first one
+      if ((!projectId || projectId === "") && projects.length > 0) {
+        projectId = projects[0].id;
+        console.log("Using default project ID:", projectId);
+      }
+
       form.reset({
         title: initialData.title || "",
         description: initialData.description || "",
@@ -211,10 +191,13 @@ export function TaskForm({
         priority: initialData.priority || "Medium",
         startDate: initialData.start_date ? new Date(initialData.start_date) : undefined,
         endDate: initialData.due_date ? new Date(initialData.due_date) : undefined,
-        projectId: initialData.project_id || "",
+        projectId: projectId,
       });
+    } else if (projects.length > 0) {
+      // If it's a new task and projects are available, use the first project
+      form.setValue("projectId", projects[0].id);
     }
-  }, [initialData, form]);
+  }, [initialData, form, projects]);
 
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [dueDateOpen, setDueDateOpen] = useState(false);
@@ -260,6 +243,15 @@ export function TaskForm({
       // Format the task with proper structure for display
       const displayTask = formatTaskFromForm(rawOptimisticTask);
 
+      // First close the dialog for better UX
+      setOpen(false);
+      
+      // Show immediate toast for better feedback
+      const toastId = toast.loading(
+        isEditMode ? "Updating task..." : "Creating task...",
+        { duration: 2000 }
+      );
+
       // Call onSubmit with optimistic data immediately
       if (onSubmit) {
         onSubmit(displayTask);
@@ -277,12 +269,17 @@ export function TaskForm({
       if (res.success) {
         form.reset();
         
-        // Show success toast - keep it here but don't show another one in the parent component
+        // Update toast to success
         toast.success(
-          isEditMode ? "Task updated successfully" : "Task created successfully"
+          isEditMode ? "Task updated successfully" : "Task created successfully",
+          {
+            id: toastId,
+            duration: 2000
+          }
         );
-        
-        setOpen(false);
+
+        // Refresh tasks from the server
+        await refreshTasks();
 
         // Update with real data if needed
         if (onSubmit && res.task) {
@@ -304,11 +301,17 @@ export function TaskForm({
           isEditMode ? "Task update failed:" : "Task creation failed:",
           res.error
         );
+        
+        // Update toast to error
         toast.error(
           Array.isArray(res.error)
             ? res.error[0]?.message
             : res.error ||
-                (isEditMode ? "Failed to update task" : "Failed to create task")
+                (isEditMode ? "Failed to update task" : "Failed to create task"),
+          {
+            id: toastId,
+            duration: 3000
+          }
         );
 
         // Signal failure to parent component to revert optimistic update
@@ -318,7 +321,9 @@ export function TaskForm({
       }
     } catch (error) {
       console.error("Task submission error:", error);
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred", {
+        duration: 3000
+      });
 
       // Signal failure to parent component
       if (onSubmit && isEditMode) {
