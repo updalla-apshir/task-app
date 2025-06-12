@@ -66,4 +66,5 @@ export const taskSchema = z.object({
   endDate: z.date().optional(),
   createdAt: z.date(),
   projectId: z.string(),
+  createdBy: z.string().optional(),
 });

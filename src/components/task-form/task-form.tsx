@@ -34,9 +34,10 @@ import { Task } from "@/lib/data";
 interface TaskFormProps {
   data: Task[];
   onTaskUpdate?: (updatedTask: Task) => void;
+  onRefresh?: () => void;
 }
 
-export function TaskForm({ data, onTaskUpdate }: TaskFormProps) {
+export function TaskForm({ data, onTaskUpdate, onRefresh }: TaskFormProps) {
   const handleTaskUpdate = React.useCallback((task: Task) => {
     onTaskUpdate?.(task);
   }, [onTaskUpdate]);
@@ -46,6 +47,7 @@ export function TaskForm({ data, onTaskUpdate }: TaskFormProps) {
       columns={columns} 
       data={data} 
       onTaskUpdate={handleTaskUpdate}
+      onRefresh={onRefresh}
     />
   );
 }

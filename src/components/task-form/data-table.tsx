@@ -33,12 +33,14 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   onTaskUpdate?: (task: Task) => void;
+  onRefresh?: () => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   onTaskUpdate,
+  onRefresh,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -70,6 +72,7 @@ export function DataTable<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
     meta: {
       onTaskUpdate,
+      onRefresh,
     },
   });
 

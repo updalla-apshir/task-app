@@ -47,8 +47,9 @@ import { toast } from "sonner";
 import { useEffect, useState, useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDescription } from "@/components/ui/form";
-
-type TaskFormValues = z.infer<typeof taskSchema>;
+import { useSession } from "next-auth/react";
+import { Priority } from "@/lib/data";
+import { TaskPriority } from "@prisma/client";
 
 // Define a schema for our form that matches the form fields
 const formSchema = z.object({
@@ -76,6 +77,7 @@ interface TaskFormProps {
   currentUserId?: string;
   projects?: Project[];
   initialData?: any; // Task data for editing
+  selectedDate?: Date | null; // Add selectedDate parameter
 }
 
 export function TaskForm({
@@ -85,6 +87,7 @@ export function TaskForm({
   currentUserId,
   projects: initialProjects = [],
   initialData,
+  selectedDate, // Add selectedDate parameter
 }: TaskFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -92,6 +95,8 @@ export function TaskForm({
     [key: string]: Project;
   }>({});
   const isEditMode = !!initialData;
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
 
   // Fetch projects only once and cache them
   const fetchProjects = useCallback(async () => {
@@ -179,10 +184,10 @@ export function TaskForm({
       ? {
           title: initialData.title || "",
           description: initialData.description || "",
-          status: initialData.status === "completed" ? "completed" : "pending",
+          status: initialData.isCompleted ? "completed" : "pending",
           priority: initialData.priority || "Medium",
-          startDate: initialData.start_date ?? undefined,
-          endDate: initialData.due_date ?? undefined,
+          startDate: initialData.start_date ? new Date(initialData.start_date) : undefined,
+          endDate: initialData.due_date ? new Date(initialData.due_date) : undefined,
           projectId: initialData.project_id || "",
         }
       : {
@@ -191,6 +196,8 @@ export function TaskForm({
           status: "pending",
           priority: "Medium",
           projectId: "",
+          startDate: new Date(),
+          endDate: selectedDate || new Date(), // Use selectedDate if available
         },
   });
 
@@ -200,10 +207,10 @@ export function TaskForm({
       form.reset({
         title: initialData.title || "",
         description: initialData.description || "",
-        status: initialData.status === "completed" ? "completed" : "pending",
+        status: initialData.isCompleted ? "completed" : "pending",
         priority: initialData.priority || "Medium",
-        startDate: initialData.start_date ?? undefined,
-        endDate: initialData.due_date ?? undefined,
+        startDate: initialData.start_date ? new Date(initialData.start_date) : undefined,
+        endDate: initialData.due_date ? new Date(initialData.due_date) : undefined,
         projectId: initialData.project_id || "",
       });
     }
@@ -216,30 +223,34 @@ export function TaskForm({
     try {
       setIsLoading(true);
       const now = new Date();
+      
+      // Prepare task data in the format expected by the server
       const taskPayload = {
         title: data.title,
         description: data.description || "",
-        startDate: data.startDate,
-        endDate: data.endDate,
         status: data.status,
         priority: data.priority,
+        startDate: data.startDate || now,
+        endDate: data.endDate || now,
         createdAt: now,
         projectId: data.projectId,
-        createdBy: currentUserId,
+        createdBy: userId || currentUserId,
       };
+
+      console.log("Submitting task payload:", taskPayload);
 
       // Create an optimistic task object with raw data
       const rawOptimisticTask = {
         id: isEditMode ? initialData.id : `temp-${Date.now()}`,
         title: data.title,
         description: data.description || "",
-        startDate: data.startDate,
-        endDate: data.endDate,
+        start_date: data.startDate || now,
+        due_date: data.endDate || now,
         status: data.status,
         priority: data.priority,
         created_at: now,
         project_id: data.projectId,
-        created_by: currentUserId,
+        created_by: userId || currentUserId,
         project: {
           name: cachedProjects[data.projectId]?.name || "Loading...",
         },
@@ -569,29 +580,31 @@ export function TaskForm({
                 )}
               />
 
-              {/* Status */}
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value === "completed"}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked ? "completed" : "pending");
-                        }}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Completed</FormLabel>
-                      <FormDescription>
-                        Mark this task as completed
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
+              {/* Status - Only show when editing an existing task */}
+              {isEditMode && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value === "completed"}
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked ? "completed" : "pending");
+                          }}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Completed</FormLabel>
+                        <FormDescription>
+                          Mark this task as completed
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {/* Description - Full Width */}
               <FormField

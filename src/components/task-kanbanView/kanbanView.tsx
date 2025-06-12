@@ -356,26 +356,83 @@ function TaskKanbanContent({
                     index={index}
                     parent={priority.id}
                     onToggleComplete={async (id) => {
-                      // Create updated task with toggled completion status
-                      const updatedTask = {
-                        ...task,
-                        isCompleted: !task.isCompleted,
-                        status: !task.isCompleted
-                          ? {
-                              id: "2",
-                              name: "Completed",
-                              color: "#10B981",
+                      try {
+                        // Create updated task with toggled completion status
+                        const updatedTask = {
+                          ...task,
+                          isCompleted: !task.isCompleted,
+                          status: !task.isCompleted
+                            ? {
+                                id: "2",
+                                name: "Completed",
+                                color: "#10B981",
+                              }
+                            : {
+                                id: "1",
+                                name: "In Progress",
+                                color: "#3B82F6",
+                              }
+                        };
+                        
+                        // Optimistically update UI first for better UX
+                        updateTask(updatedTask);
+                        
+                        // Then call the API with retries
+                        let retries = 0;
+                        const maxRetries = 2;
+                        let success = false;
+                        
+                        while (retries <= maxRetries && !success) {
+                          try {
+                            const result = await updateTaskCompletionStatus(task.id, !task.isCompleted);
+                            if (result.success) {
+                              success = true;
+                              break;
+                            } else {
+                              retries++;
+                              if (retries <= maxRetries) {
+                                // Wait before retry
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                              } else {
+                                throw new Error(result.error || "Failed to update task status");
+                              }
                             }
-                          : {
-                              id: "1",
-                              name: "In Progress",
-                              color: "#3B82F6",
-                            },
-                        isOptimistic: true
-                      };
-                      
-                      // Use the context's updateTask which is connected to the shared handler
-                      updateTask(updatedTask);
+                          } catch (err) {
+                            retries++;
+                            if (retries > maxRetries) {
+                              throw err;
+                            }
+                            // Wait before retry
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                          }
+                        }
+                        
+                        if (!success) {
+                          throw new Error("Failed to update task after retries");
+                        }
+                        
+                      } catch (err) {
+                        console.error("Error during task update:", err);
+                        toast.error("Error updating task - please refresh and try again");
+                        
+                        // Revert optimistic update on error
+                        const revertedTask = {
+                          ...task,
+                          isCompleted: task.isCompleted,
+                          status: task.isCompleted
+                            ? {
+                                id: "2",
+                                name: "Completed",
+                                color: "#10B981",
+                              }
+                            : {
+                                id: "1",
+                                name: "In Progress",
+                                color: "#3B82F6",
+                              }
+                        };
+                        updateTask(revertedTask);
+                      }
                     }}
                   >
                     {/* Project Badge */}

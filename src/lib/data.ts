@@ -98,6 +98,22 @@ export function formatTaskFromForm(taskData: any): Task {
     ? taskData.is_completed 
     : isCompleted;
   
+  // Normalize priority to uppercase for frontend consistency
+  let priority: Priority = "MEDIUM";
+  if (typeof taskData.priority === 'string') {
+    // Handle both uppercase and lowercase priority values
+    const normalizedPriority = taskData.priority.toUpperCase();
+    if (normalizedPriority === "HIGH" || normalizedPriority === "MEDIUM" || normalizedPriority === "LOW") {
+      priority = normalizedPriority as Priority;
+    } else if (normalizedPriority === "LOW" || taskData.priority === "Low") {
+      priority = "LOW";
+    } else if (normalizedPriority === "MEDIUM" || taskData.priority === "Medium") {
+      priority = "MEDIUM";
+    } else if (normalizedPriority === "HIGH" || taskData.priority === "High") {
+      priority = "HIGH";
+    }
+  }
+  
   return {
     id: taskData.id || `temp-${Date.now()}`,
     title: taskData.title || "",
@@ -109,9 +125,7 @@ export function formatTaskFromForm(taskData: any): Task {
       name: completed ? "Completed" : "In Progress",
       color: completed ? "#10B981" : "#3B82F6",
     },
-    priority: typeof taskData.priority === 'string' 
-      ? taskData.priority.toUpperCase() 
-      : "MEDIUM",
+    priority: priority,
     isCompleted: completed,
     project: projectName,
     isOptimistic: !!taskData.isOptimistic,

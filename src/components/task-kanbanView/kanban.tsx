@@ -140,6 +140,8 @@ export const KanbanCard = ({
                 ? "bg-green-500 border-green-500 text-white hover:bg-green-600" 
                 : "border-gray-300 hover:border-gray-400"
             )}
+            aria-label={isCompleted ? "Mark as incomplete" : "Mark as complete"}
+            title={isCompleted ? "Mark as incomplete" : "Mark as complete"}
           >
             {isCompleted ? (
               <Check className="w-3 h-3" />

@@ -35,8 +35,10 @@ export async function updateTaskCompletionStatus(
   taskId: string,
   isCompleted: boolean
 ) {
-  console.log(`Attempting to update task ${taskId} to isCompleted=${isCompleted}`);
-  
+  console.log(
+    `Attempting to update task ${taskId} to isCompleted=${isCompleted}`
+  );
+
   if (!taskId) {
     console.error("Task ID is missing");
     return { success: false, error: "Task ID is required" };
@@ -47,44 +49,41 @@ export async function updateTaskCompletionStatus(
     const currentTask = await prisma.task.findUnique({
       where: { id: taskId },
     });
-    
+
     if (!currentTask) {
       console.error(`Task ${taskId} not found`);
       return { success: false, error: "Task not found" };
     }
-    
+
     console.log("Current task state:", currentTask);
 
-    // Create the update data - just use the fields we know exist
+    // Create the update data
     const updateData = {
       status: isCompleted ? TaskStatus.completed : TaskStatus.pending,
     };
-    
+
     console.log("Updating task with data:", updateData);
-    
-    // Use updateMany with multiple conditions to make sure we're updating the right task
-    // This is more reliable than just using id alone in some cases
-    const result = await prisma.task.updateMany({
-      where: { 
-        id: taskId,
-        // Also check the current status to ensure we're actually changing something
-        status: isCompleted ? TaskStatus.pending : TaskStatus.completed
-      },
+
+    // Use update to ensure the task is updated regardless of current state
+    const updatedTask = await prisma.task.update({
+      where: { id: taskId },
       data: updateData,
     });
 
-    console.log("Task update result:", result);
-    
-    // If no rows were affected, it might be because the task was already in that state
-    if (result.count === 0) {
-      console.log("No rows affected - task might already be in the desired state");
-    }
-    
+    console.log("Task updated successfully:", updatedTask);
+
+    // Force revalidation of tasks path to ensure UI is updated
     revalidatePath("/tasks");
-    return { success: true };
+
+    return { success: true, task: updatedTask };
   } catch (error) {
     console.error("Failed to update task:", error);
-    return { success: false, error: "Failed to update task: " + (error instanceof Error ? error.message : String(error)) };
+    return {
+      success: false,
+      error:
+        "Failed to update task: " +
+        (error instanceof Error ? error.message : String(error)),
+    };
   }
 }
 
@@ -120,7 +119,7 @@ export async function updateTask(taskId: string, formData: any) {
   }
 }
 
-export async function createTask(formData: any) {
+export async function createTask(formData: z.infer<typeof taskSchema>) {
   const parseResult = taskSchema.safeParse(formData);
 
   if (!parseResult.success) {
@@ -139,7 +138,7 @@ export async function createTask(formData: any) {
         due_date: formData.endDate,
         created_at: formData.createdAt,
         project_id: formData.projectId,
-        created_by: formData.createdBy,
+        created_by: formData.createdBy as string,
       },
     });
 
@@ -155,11 +154,11 @@ export const deleteTask = async (taskId: string) => {
     if (!taskId) {
       throw new Error("Task ID is required");
     }
-    
+
     await prisma.task.delete({
       where: { id: taskId },
     });
-    
+
     revalidatePath("/tasks");
     return { success: true, message: "Task deleted successfully." };
   } catch (error) {

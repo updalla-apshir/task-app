@@ -37,36 +37,65 @@ export const columns: ColumnDef<Task>[] = [
         checked={row.original.isCompleted}
         onCheckedChange={async (value) => {
           if (typeof value === "boolean") {
-            // Capture task ID upfront for better debugging
             const taskId = row.original.id;
-            console.log(`Checkbox changed for task ${taskId}:`, value);
             
             try {
-              // First call the API directly
-              console.log(`Calling updateTaskCompletionStatus directly for ${taskId}`);
-              const result = await updateTaskCompletionStatus(taskId, value);
-              console.log("Direct API call result:", result);
+              // Optimistically update UI first for better UX
+              const updatedTask = {
+                ...row.original,
+                isCompleted: value,
+                status: value
+                  ? { id: "2", name: "Completed", color: "#10B981" }
+                  : { id: "1", name: "In Progress", color: "#F59E0B" }
+              };
               
-              if (result.success) {
-                // Now update UI
-                const updatedTask = {
-                  ...row.original,
-                  isCompleted: value,
-                  status: value
-                    ? { id: "2", name: "Completed", color: "#10B981" }
-                    : { id: "1", name: "In Progress", color: "#F59E0B" },
-                  isOptimistic: true
-                };
-                
-                // Update UI via React Query
-                (table.options.meta as any)?.onTaskUpdate?.(updatedTask);
-              } else {
-                console.error("Failed to update task directly:", result.error);
-                toast.error("Failed to update task: " + result.error);
+              // Update UI via table meta
+              (table.options.meta as any)?.onTaskUpdate?.(updatedTask);
+              
+              // Then call the API
+              let retries = 0;
+              const maxRetries = 2;
+              let success = false;
+              
+              while (retries <= maxRetries && !success) {
+                try {
+                  const result = await updateTaskCompletionStatus(taskId, value);
+                  if (result.success) {
+                    success = true;
+                  } else {
+                    retries++;
+                    if (retries <= maxRetries) {
+                      // Wait before retry
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                    } else {
+                      throw new Error(result.error || "Failed to update task status");
+                    }
+                  }
+                } catch (err) {
+                  retries++;
+                  if (retries > maxRetries) {
+                    throw err;
+                  }
+                  // Wait before retry
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
               }
+              
+              // Force table refresh to ensure latest data is displayed
+              setTimeout(() => {
+                (table.options.meta as any)?.onRefresh?.();
+              }, 300);
+              
             } catch (err) {
-              console.error("Error during direct task update:", err);
-              toast.error("Error updating task");
+              console.error("Error during task update:", err);
+              toast.error("Error updating task - please refresh and try again");
+              
+              // Revert optimistic update on error
+              const revertedTask = {
+                ...row.original,
+                isCompleted: !value
+              };
+              (table.options.meta as any)?.onTaskUpdate?.(revertedTask);
             }
           }
         }}
