@@ -2,20 +2,19 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import bcrypt from "bcryptjs";
-import { 
-  AccountSettingsSchema, 
-  PasswordUpdateSchema, 
-  SecuritySettingsSchema,
-  PrivacySettingsSchema
-} from "@/schemas/settings";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { hash, verify } from "@/lib/auth/password";
+import {
+  AccountSettingsSchema,
+  PasswordUpdateSchema,
+  SecuritySettingsSchema,
+  PrivacySettingsSchema,
+} from "@/schemas/settings";
 
 // Get user settings
 export async function getUserSettings() {
   const session = await auth();
-  
+
   if (!session?.user?.email) {
     return { error: "Unauthorized" };
   }
@@ -34,12 +33,12 @@ export async function getUserSettings() {
       return { error: "User not found" };
     }
 
-    return { 
+    return {
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-      } 
+      },
     };
   } catch (error) {
     console.error("Error fetching user settings:", error);
@@ -50,7 +49,7 @@ export async function getUserSettings() {
 // Update account settings
 export async function updateAccountSettings(formData: FormData) {
   const session = await auth();
-  
+
   if (!session?.user?.email) {
     return { error: "Unauthorized" };
   }
@@ -82,8 +81,8 @@ export async function updateAccountSettings(formData: FormData) {
     await prisma.user.update({
       where: { email: session.user.email },
       data: {
-        email,
         name: username,
+        email,
       },
     });
 
@@ -98,7 +97,7 @@ export async function updateAccountSettings(formData: FormData) {
 // Update password
 export async function updatePassword(formData: FormData) {
   const session = await auth();
-  
+
   if (!session?.user?.email) {
     return { error: "Unauthorized" };
   }
@@ -125,25 +124,28 @@ export async function updatePassword(formData: FormData) {
       },
     });
 
-    if (!user?.password) {
+    if (!user || !user.password) {
       return { error: "User not found or no password set" };
     }
 
     // Verify current password
-    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!passwordMatch) {
+    const isPasswordValid = await verify(user.password, currentPassword);
+    if (!isPasswordValid) {
       return { error: { currentPassword: ["Current password is incorrect"] } };
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await hash(newPassword);
 
-    // Update password
+    // Update user password
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword },
+      data: {
+        password: hashedPassword,
+      },
     });
 
+    revalidatePath("/settings");
     return { success: "Password updated successfully" };
   } catch (error) {
     console.error("Error updating password:", error);
@@ -151,40 +153,40 @@ export async function updatePassword(formData: FormData) {
   }
 }
 
-// Update security settings (2FA)
+// Update security settings
 export async function updateSecuritySettings(formData: FormData) {
   const session = await auth();
-  
+
   if (!session?.user?.email) {
     return { error: "Unauthorized" };
   }
 
   try {
+    const twoFactorEnabled = formData.get("twoFactorEnabled") === "true";
+
     const validatedFields = SecuritySettingsSchema.safeParse({
-      twoFactorEnabled: formData.get("twoFactorEnabled") === "true",
+      twoFactorEnabled,
     });
 
     if (!validatedFields.success) {
       return { error: validatedFields.error.flatten().fieldErrors };
     }
 
-    const { twoFactorEnabled } = validatedFields.data;
+    // Update user security settings
+    // Note: You would need to add a twoFactorEnabled field to your user model
+    // This is a simplified implementation
+    await prisma.user.update({
+      where: { email: session.user.email },
+      data: {
+        // twoFactorEnabled: twoFactorEnabled,
+        // Uncomment above line once you add this field to your Prisma schema
+      },
+    });
 
-    // For this example, we'll just simulate 2FA setup
-    // In a real app, you would implement actual 2FA logic here
-
-    // Update user preferences in a real app
-    // await prisma.user.update({
-    //   where: { email: session.user.email },
-    //   data: {
-    //     twoFactorEnabled,
-    //   },
-    // });
-
+    revalidatePath("/settings");
     return { 
-      success: twoFactorEnabled 
-        ? "Two-factor authentication enabled" 
-        : "Two-factor authentication disabled" 
+      success: `Two-factor authentication ${twoFactorEnabled ? "enabled" : "disabled"}`,
+      twoFactorEnabled,
     };
   } catch (error) {
     console.error("Error updating security settings:", error);
@@ -195,28 +197,29 @@ export async function updateSecuritySettings(formData: FormData) {
 // Update privacy settings
 export async function updatePrivacySettings(formData: FormData) {
   const session = await auth();
-  
+
   if (!session?.user?.email) {
     return { error: "Unauthorized" };
   }
 
   try {
+    const accountVisibility = formData.get("accountVisibility") === "true";
+    const activityTracking = formData.get("activityTracking") === "true";
+    const dataCollection = formData.get("dataCollection") === "true";
+
     const validatedFields = PrivacySettingsSchema.safeParse({
-      accountVisibility: formData.get("accountVisibility") === "true",
-      activityTracking: formData.get("activityTracking") === "true",
-      dataCollection: formData.get("dataCollection") === "true",
+      accountVisibility,
+      activityTracking,
+      dataCollection,
     });
 
     if (!validatedFields.success) {
       return { error: validatedFields.error.flatten().fieldErrors };
     }
 
-    const { accountVisibility, activityTracking, dataCollection } = validatedFields.data;
-
-    // For this example, we'll just simulate privacy settings
-    // In a real app, you would store these preferences in your database
-
-    // Update user preferences in a real app
+    // Update user privacy settings
+    // Note: You would need to add these fields to your user model or create a userPreferences model
+    // This is a simplified implementation
     // await prisma.userPreferences.upsert({
     //   where: { userId: session.user.id },
     //   update: {
@@ -232,6 +235,7 @@ export async function updatePrivacySettings(formData: FormData) {
     //   },
     // });
 
+    revalidatePath("/settings");
     return { success: "Privacy settings updated successfully" };
   } catch (error) {
     console.error("Error updating privacy settings:", error);

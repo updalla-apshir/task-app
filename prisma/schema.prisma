@@ -36,23 +36,24 @@ generator client {
 }
 
 model User {
-  id            String              @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  email         String?             @unique
-  emailVerified DateTime?
-  image         String?
-  bio           String?
-  phone         String?
-  password      String?
-  role          Role                @default(User)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  teams         TeamMember[]
-  ownedProjects Project[]           @relation("ProjectOwner")
-  createdTasks  Task[]              @relation("CreatedTasks")
-  assignedTasks ProjectAssignment[]
+  id                            String              @id @default(auto()) @map("_id") @db.ObjectId
+  name                          String?
+  email                         String?             @unique
+  emailVerified                 DateTime?
+  enableTwoFactorAuthentication Boolean?            @default(false)
+  image                         String?
+  bio                           String?
+  phone                         String?
+  password                      String?
+  role                          Role                @default(User)
+  createdAt                     DateTime            @default(now())
+  updatedAt                     DateTime            @updatedAt
+  accounts                      Account[]
+  sessions                      Session[]
+  teams                         TeamMember[]
+  ownedProjects                 Project[]           @relation("ProjectOwner")
+  createdTasks                  Task[]              @relation("CreatedTasks")
+  assignedTasks                 ProjectAssignment[]
 }
 
 model Team {

@@ -16,6 +16,10 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { addTeamMember } from "../../../actions/team";
 import { toast } from "sonner";
+import { FormProvider, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { userRegisterSchema } from "@/schemas/shema";
+import { FormControl, FormField, FormItem, FormMessage } from "../ui/form";
 
 interface AddTeamMemberProps {
   teamId: string;
@@ -26,6 +30,15 @@ export function AddTeamMember({ teamId, onMemberAdd }: AddTeamMemberProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  const form = useForm({
+    resolver: zodResolver(userRegisterSchema), // Enable Zod validation
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
   async function onSubmit(formData: FormData) {
     setIsLoading(true);
@@ -47,6 +60,12 @@ export function AddTeamMember({ teamId, onMemberAdd }: AddTeamMemberProps) {
     }
   }
 
+  const isFormValid =
+    !form.formState.errors.email &&
+    !form.formState.errors.password &&
+    !form.formState.errors.confirmPassword &&
+    form.getValues("password") === form.getValues("confirmPassword");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -60,50 +79,77 @@ export function AddTeamMember({ teamId, onMemberAdd }: AddTeamMemberProps) {
             will be created for them.
           </DialogDescription>
         </DialogHeader>
-        <form action={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
+        <FormProvider {...form}>
+          <form action={onSubmit} className="space-y-4">
+            {/* Email Field */}
+
+            <FormField
+              control={form.control}
               name="email"
-              type="email"
-              placeholder="Enter member's email"
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <Label>Email Address</Label>
+                  <FormControl>
+                    <Input type="email" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage>
+                    {form.formState.errors.email?.message}
+                  </FormMessage>
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
+
+            {/* Password Field */}
+            <FormField
+              control={form.control}
               name="password"
-              type="password"
-              placeholder="Enter password for new user"
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <Label>Password</Label>
+                  <FormControl>
+                    <Input type="password" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage>
+                    {form.formState.errors.password?.message}
+                  </FormMessage>
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
+
+            {/* Confirm Password Field */}
+            <FormField
+              control={form.control}
               name="confirmPassword"
-              type="password"
-              placeholder="Confirm password"
-              required
+              render={({ field }) => (
+                <FormItem>
+                  <Label>Confirm Password</Label>
+                  <FormControl>
+                    <Input type="password" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage>
+                    {form.formState.errors.confirmPassword?.message ||
+                      (form.getValues("password") !==
+                        form.getValues("confirmPassword") &&
+                        form.getValues("confirmPassword") &&
+                        "Passwords do not match")}
+                  </FormMessage>
+                </FormItem>
+              )}
             />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Adding..." : "Add Member"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Member"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </FormProvider>
       </DialogContent>
     </Dialog>
   );

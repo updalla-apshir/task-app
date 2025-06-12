@@ -191,7 +191,7 @@ export default function SettingsPage() {
   ) => {
     // Toggle the value before sending to the server
     const newTwoFactorState = !twoFactorEnabled;
-    
+
     const formData = new FormData();
     formData.append("twoFactorEnabled", newTwoFactorState.toString());
 
@@ -420,7 +420,7 @@ export default function SettingsPage() {
                         </p>
                       </div>
                       <FormControl>
-                        <Switch 
+                        <Switch
                           checked={twoFactorEnabled}
                           onCheckedChange={(checked) => {
                             // Don't update the form value here, just update the UI state
@@ -444,9 +444,9 @@ export default function SettingsPage() {
                     className={`h-3 w-3 rounded-full ${twoFactorEnabled ? "bg-green-500" : "bg-red-500"}`}
                   ></div>
                 </div>
-                <Button 
+                <Button
                   type="button"
-                  variant={twoFactorEnabled ? "destructive" : "default"} 
+                  variant={twoFactorEnabled ? "destructive" : "default"}
                   className="w-full"
                   onClick={() => handleSecuritySubmit({ twoFactorEnabled })}
                 >

@@ -14,9 +14,34 @@ import {
 import { Bell, Search, Menu, User } from "lucide-react";
 import Link from "next/link";
 import { ModeToggle } from "./mode-toggle";
+import { use, useEffect, useState } from "react";
+import { getUserProfile } from "../../actions/profile";
+
+const userProvile = async () => {
+  const res = await getUserProfile();
+  return res.profile?.avatarUrl;
+};
 
 export default function Topbar({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
+  const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(
+    session?.user?.image || null
+  );
+
+  // Fetch user profile avatar URL and update when session changes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAvatar = async () => {
+      const url = await userProvile();
+      if (isMounted) {
+        setAvatarUrl(url || session?.user?.image || null);
+      }
+    };
+    fetchAvatar();
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user?.image]);
 
   if (status === "loading") return null;
 
@@ -71,8 +96,9 @@ export default function Topbar({ children }: { children: React.ReactNode }) {
               <button className="flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
                 <Avatar className="h-8 w-8">
                   <AvatarImage
-                    src={session.user?.image || "/user.png"}
+                    src={avatarUrl || "/user.png"}
                     alt={session.user?.name || "User"}
+                    key={avatarUrl}
                   />
                   <AvatarFallback className="bg-primary/5">
                     {session.user?.name?.[0]?.toUpperCase() || "U"}
@@ -92,8 +118,9 @@ export default function Topbar({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-3 p-2 rounded-md">
                 <Avatar className="h-10 w-10 border-2 border-primary/10">
                   <AvatarImage
-                    src={session.user?.image || "/user.png"}
-                    alt={session.user?.name || "User"}
+                    src={avatarUrl || "/user.png"}
+                    alt={session.user?.name || "User Avatar"}
+                    key={avatarUrl}
                   />
                   <AvatarFallback className="bg-primary/5">
                     {session.user?.name?.[0]?.toUpperCase() || "U"}

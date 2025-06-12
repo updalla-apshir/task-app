@@ -1,20 +1,20 @@
-"use server"
-import { z } from 'zod';
-import { userRegisterSchema } from '@/schemas/shema';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
-import { SignJWT } from 'jose';
+"use server";
+import { z } from "zod";
+import { userRegisterSchema } from "@/schemas/shema";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
+import { SignJWT } from "jose";
 
 const registerUser = async (formData: z.infer<typeof userRegisterSchema>) => {
   const { email, password, confirmPassword } = formData;
-  
+
   try {
     if (!email || !password || !confirmPassword) {
       return {
         success: false,
         errors: {
-          general: ['All fields are required.'],
+          general: ["All fields are required."],
         },
       };
     }
@@ -34,7 +34,7 @@ const registerUser = async (formData: z.infer<typeof userRegisterSchema>) => {
     if (existingUser) {
       return {
         success: false,
-        errors: { email: ['Email already exists'] },
+        errors: { email: ["Email already exists"] },
       };
     }
 
@@ -48,32 +48,33 @@ const registerUser = async (formData: z.infer<typeof userRegisterSchema>) => {
     });
 
     // Create JWT token
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
-    const token = await new SignJWT({ 
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || "your-secret-key"
+    );
+    const token = await new SignJWT({
       id: newUser.id,
-      email: newUser.email 
+      email: newUser.email,
     })
-      .setProtectedHeader({ alg: 'HS256' })
+      .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime('7d')
+      .setExpirationTime("7d")
       .sign(secret);
 
     // Return success with token
     return {
       success: true,
-      message: 'User successfully registered',
+      message: "User successfully registered",
       user: {
         id: newUser.id,
         email: newUser.email,
       },
-      token
+      token,
     };
-
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error("Error creating user:", error);
     return {
       success: false,
-      errors: { general: ['An error occurred during registration'] },
+      errors: { general: ["An error occurred during registration"] },
     };
   }
 };

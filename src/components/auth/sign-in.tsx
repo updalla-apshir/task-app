@@ -43,6 +43,7 @@ function SignInForm() {
     },
   });
 
+  // ... existing code ...
   const onsubmit = async (data: { email: string; password: string }) => {
     try {
       setIsLoading(true);
@@ -53,7 +54,31 @@ function SignInForm() {
         throw new Error("Invalid email or password");
       }
 
-      // Try signing in directly - 2FA is not yet implemented
+      // Handle 2FA
+      if (res?.password) {
+        // Validate password first
+        const isPasswordValid = await bcrypt.compare(
+          data.password,
+          res.password
+        );
+        if (!isPasswordValid) {
+          toast.error("Invalid email or password", { position: "top-center" });
+          return;
+        }
+
+        // Send verification code and proceed with 2FA
+        await sendVerificationCodeEmail(res.email);
+        toast.success("Verification code sent to your email", {
+          position: "top-center",
+        });
+
+        // Store user info for later 2FA use
+        dispatch(setUserData({ email: data.email, password: data.password }));
+        router.push("/2fa-auth");
+        return;
+      }
+
+      // Try signing in
       const response = await signIn("credentials", {
         email: data.email,
         password: data.password,
