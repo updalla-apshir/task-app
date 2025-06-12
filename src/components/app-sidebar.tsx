@@ -13,6 +13,7 @@ import {
   Paperclip,
   Settings2,
   Users,
+  User,
 } from "lucide-react";
 
 import { NavMain } from "./nav-main";
@@ -90,6 +91,11 @@ const data = {
       title: "Reports",
       url: "/reports",
       icon: BarChart2,
+    },
+    {
+      title: "Profile",
+      url: "/profile",
+      icon: User,
     },
     {
       title: "Settings",
