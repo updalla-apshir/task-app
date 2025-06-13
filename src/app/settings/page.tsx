@@ -242,7 +242,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 space-y-8">
+      <div className=" mx-4 py-8 space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Settings</h1>
         </div>
@@ -254,7 +254,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className=" mx-4 py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Settings</h1>
       </div>

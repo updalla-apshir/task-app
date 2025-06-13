@@ -172,19 +172,15 @@ export async function updateSecuritySettings(formData: FormData) {
       return { error: validatedFields.error.flatten().fieldErrors };
     }
 
-    // Update user security settings
-    // Note: You would need to add a twoFactorEnabled field to your user model
-    // This is a simplified implementation
     await prisma.user.update({
       where: { email: session.user.email },
       data: {
-        // twoFactorEnabled: twoFactorEnabled,
-        // Uncomment above line once you add this field to your Prisma schema
+        enableTwoFactorAuthentication: twoFactorEnabled,
       },
     });
 
     revalidatePath("/settings");
-    return { 
+    return {
       success: `Two-factor authentication ${twoFactorEnabled ? "enabled" : "disabled"}`,
       twoFactorEnabled,
     };
@@ -241,4 +237,4 @@ export async function updatePrivacySettings(formData: FormData) {
     console.error("Error updating privacy settings:", error);
     return { error: "Failed to update privacy settings" };
   }
-} 
+}
