@@ -1,5 +1,7 @@
 import { getProjects } from "../../actions/project";
 import { ProjectStatus, TaskPriority } from "@prisma/client";
+import { getTasksForUser } from "../../actions/task";
+import { auth } from "./auth";
 
 export type TeamMember = {
   id: string;
@@ -52,8 +54,13 @@ export interface ProjectApiResponse {
   tasks?: Array<{ status: string }>;
 }
 
-export const defaultProjects = async (): Promise<Project[]> => {
+export const defaultProjects = async (userId?: string): Promise<Project[]> => {
   try {
+    if (!userId) {
+      console.log("No userId provided");
+      return [];
+    }
+
     const data = await getProjects();
     console.log("Fetched raw project data:", data);
 
@@ -67,19 +74,34 @@ export const defaultProjects = async (): Promise<Project[]> => {
       return [];
     }
 
-    const transformedData = data.map((item: ProjectApiResponse) => {
-      // Calculate progress based on tasks
-      let progress = 0;
-      const tasks = item.tasks || [];
+    // 👇 Fetch all tasks for all projects (optional: if per user, pass userId)
+    const allTasks = await getTasksForUser(userId); // Pass userId if needed
 
-      if (tasks.length > 0) {
-        const completedTasks = tasks.filter(
+    const transformedData = data.map((item: ProjectApiResponse) => {
+      // 👇 Filter tasks that belong to this project
+      const projectTasks = allTasks.filter(
+        (task) => task.project?.id === item.id
+      );
+
+      // Calculate progress and update status based on progress
+      let progress = 0;
+      if (projectTasks.length > 0) {
+        const completedTasks = projectTasks.filter(
           (task) => task.status === "completed"
         ).length;
-        progress = Math.round((completedTasks / tasks.length) * 100);
+        progress = Math.round((completedTasks / projectTasks.length) * 100);
       }
 
-      // Transform assignedTo data safely
+      // Determine status based on progress
+      let status = item.status;
+      if (progress === 100) {
+        status = "completed";
+      } else if (progress > 0) {
+        status = "in_progress";
+      } else {
+        status = "not_started";
+      }
+
       const teamMembers = Array.isArray(item.assignedTo)
         ? item.assignedTo.map((assignment) => ({
             id: assignment?.user?.id || "",
@@ -89,21 +111,21 @@ export const defaultProjects = async (): Promise<Project[]> => {
           }))
         : [];
 
-      // Ensure all required fields have values
       const project: Project = {
         id: item.id,
         name: item.name,
         description: item.description || "",
         startDate: item.start_date,
         endDate: item.due_date,
-        status: item.status,
+        status: status,
         priority: item.priority,
         teamSize: String(teamMembers.length || 1),
-        progress: progress,
-        teamMembers: teamMembers,
+        progress,
+        teamMembers,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt || item.createdAt || new Date(),
       };
+
       return project;
     });
 

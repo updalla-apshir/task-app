@@ -116,6 +116,7 @@ model Task {
   project_id   String       @db.ObjectId
   is_completed Boolean      @default(false)
   is_archived  Boolean      @default(false)
+  reminderSent Boolean      @default(false) // ✅ Add this line
 
   createdBy User    @relation("CreatedTasks", fields: [created_by], references: [id])
   project   Project @relation(fields: [project_id], references: [id])

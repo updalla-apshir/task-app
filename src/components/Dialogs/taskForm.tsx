@@ -166,7 +166,7 @@ export function TaskForm({
           description: "",
           status: "pending",
           priority: "Medium",
-          projectId: "",
+          projectId: projects.length > 0 ? projects[0].id : "no-projects",
           startDate: new Date(),
           endDate: selectedDate || new Date(), // Use selectedDate if available
         },
@@ -182,6 +182,9 @@ export function TaskForm({
       if ((!projectId || projectId === "") && projects.length > 0) {
         projectId = projects[0].id;
         console.log("Using default project ID:", projectId);
+      } else if (projects.length === 0) {
+        // If no projects available, use placeholder value
+        projectId = "no-projects";
       }
 
       form.reset({
@@ -191,7 +194,7 @@ export function TaskForm({
         priority: initialData.priority || "Medium",
         startDate: initialData.start_date ? new Date(initialData.start_date) : undefined,
         endDate: initialData.due_date ? new Date(initialData.due_date) : undefined,
-        projectId: projectId,
+        projectId: projectId || "no-projects", // Use fallback value if projectId is empty
       });
     } else if (projects.length > 0) {
       // If it's a new task and projects are available, use the first project
@@ -569,7 +572,7 @@ export function TaskForm({
                             </SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no-projects" disabled>
                             No projects available
                           </SelectItem>
                         )}

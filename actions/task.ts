@@ -23,7 +23,7 @@ export async function getTasksForUser(userId?: string) {
     },
     include: {
       project: {
-        select: { name: true },
+        select: { name: true, id: true },
       },
     },
   });

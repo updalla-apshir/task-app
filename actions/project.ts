@@ -242,6 +242,7 @@ export const updateProject = async (
     return { success: false, error: String(error) };
   }
 };
+
 export const deleteProject = async (projectId: string) => {
   await prisma.$transaction([
     prisma.projectAssignment.deleteMany({
@@ -253,4 +254,54 @@ export const deleteProject = async (projectId: string) => {
   ]);
 
   return { success: true, message: "Project deleted successfully." };
+};
+
+export const updateProjectStatus = async (
+  projectId: string,
+  status: ProjectStatus
+) => {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    if (!userId) return { success: false, error: "User not authenticated" };
+
+    // Check if project exists and user has access
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        OR: [
+          { ownerId: userId },
+          {
+            assignedTo: {
+              some: {
+                userId,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    if (!project) {
+      return { success: false, error: "Project not found or access denied" };
+    }
+
+    // Update only the status
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        status,
+        updatedAt: new Date(),
+      },
+    });
+
+    return {
+      success: true,
+      data: updatedProject,
+    };
+  } catch (error) {
+    console.error("Project status update failed:", error);
+    return { success: false, error: String(error) };
+  }
 };

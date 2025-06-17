@@ -36,6 +36,9 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { updateProjectStatus } from "../../../actions/project";
+import { toast } from "sonner";
 
 // Define statuses
 const exampleStatuses: Status[] = [
@@ -78,6 +81,8 @@ export default function ProjectKanban() {
   const [selectedStatus, setSelectedStatus] =
     React.useState<ProjectStatus | null>(null);
   const { value, setValue } = useValue();
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
 
   const queryClient = useQueryClient();
 
@@ -86,8 +91,9 @@ export default function ProjectKanban() {
     isLoading,
     error,
   } = useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: defaultProjects,
+    queryKey: ["projects", userId],
+    queryFn: () => userId ? defaultProjects(userId) : Promise.resolve([]),
+    enabled: !!userId,
   });
 
   console.log("Kanban Projects:", { projects, isLoading, error });
@@ -117,14 +123,14 @@ export default function ProjectKanban() {
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent, newStatus: ProjectStatus) => {
+  const handleDrop = async (e: React.DragEvent, newStatus: ProjectStatus) => {
     e.preventDefault();
     const projectId = e.dataTransfer.getData("text/plain");
     console.log("Dropping project:", projectId, "to status:", newStatus);
 
-    // Update the project status in the query
+    // Update the project status in the query cache optimistically
     queryClient.setQueryData(
-      ["projects"],
+      ["projects", userId],
       (oldProjects: Project[] | undefined) => {
         if (oldProjects) {
           const updatedProjects = oldProjects.map((project) =>
@@ -139,6 +145,23 @@ export default function ProjectKanban() {
       }
     );
     setDraggingTaskId(null);
+
+    // Call server action to update the project status in the database
+    try {
+      const result = await updateProjectStatus(projectId, newStatus);
+      if (!result.success) {
+        // If update failed, show error and revert the optimistic update
+        toast.error("Failed to update project status");
+        queryClient.invalidateQueries({ queryKey: ["projects", userId] });
+      } else {
+        // If successful, show a success message
+        toast.success(`Project moved to ${newStatus.replace(/_/g, ' ')}`);
+      }
+    } catch (error) {
+      console.error("Error updating project status:", error);
+      toast.error("Failed to update project status");
+      queryClient.invalidateQueries({ queryKey: ["projects", userId] });
+    }
   };
 
   const handleDragEnd = () => {
@@ -288,8 +311,13 @@ export default function ProjectKanban() {
                           <div className="w-full flex items-center gap-2">
                             <div className="flex-1 relative h-2 rounded-full bg-gray-300 overflow-hidden">
                               <div
-                                className="absolute left-0 top-0 h-full bg-blue-600 transition-all"
-                                style={{ width: `${project.progress}%` }}
+                                className="absolute left-0 top-0 h-full transition-all"
+                                style={{ 
+                                  width: `${project.progress}%`, 
+                                  backgroundColor: 
+                                    project.progress === 100 ? '#10B981' : 
+                                    project.progress > 0 ? '#F59E0B' : '#94A3B8'
+                                }}
                               />
                             </div>
                             <span className="text-sm text-muted-foreground min-w-[3ch]">

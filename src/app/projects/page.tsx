@@ -75,11 +75,12 @@ function ProjectsPageContent() {
     error,
     refetch,
   } = useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: defaultProjects,
+    queryKey: ["projects", userId],
+    queryFn: () => userId ? defaultProjects(userId) : Promise.resolve([]),
     retry: 2,
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
+    enabled: !!userId, // Only run query when userId is available
   });
 
   console.log("Projects data:", projects);
@@ -106,12 +107,14 @@ function ProjectsPageContent() {
 
   // Prefetch projects data
   React.useEffect(() => {
-    // Prefetch projects data
-    queryClient.prefetchQuery({
-      queryKey: ["projects"],
-      queryFn: defaultProjects,
-    });
-  }, [queryClient]);
+    if (userId) {
+      // Prefetch projects data
+      queryClient.prefetchQuery({
+        queryKey: ["projects", userId],
+        queryFn: () => defaultProjects(userId),
+      });
+    }
+  }, [queryClient, userId]);
 
   // Handle project form submission
   const handleProjectSubmit = async (status: string) => {

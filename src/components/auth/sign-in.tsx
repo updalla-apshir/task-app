@@ -55,8 +55,8 @@ function SignInForm() {
       }
 
       // Handle 2FA
-      if (res?.password) {
-        // Validate password first
+      if (res.enableTwoFactorAuthentication) {
+        // Validate password
         const isPasswordValid = await bcrypt.compare(
           data.password,
           res.password
@@ -65,8 +65,6 @@ function SignInForm() {
           toast.error("Invalid email or password", { position: "top-center" });
           return;
         }
-
-        // Send verification code and proceed with 2FA
         await sendVerificationCodeEmail(res.email);
         toast.success("Verification code sent to your email", {
           position: "top-center",
@@ -106,6 +104,8 @@ function SignInForm() {
       setIsLoading(false);
     }
   };
+
+  // ... existing code ...
 
   const isFormValid =
     !form.formState.errors.email && !form.formState.errors.password;
