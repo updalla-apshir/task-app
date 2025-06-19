@@ -1,3 +1,5 @@
+"use server";
+
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
 
@@ -28,7 +30,18 @@ export async function sendUpcomingTaskReminders() {
 
     for (const task of upcomingTasks) {
       const userEmail = task.createdBy?.email;
-      if (!userEmail) continue;
+      const userId = task.createdBy?.id;
+      if (!userEmail || !userId) continue;
+
+      // Create notification in database
+      await prisma.notification.create({
+        data: {
+          title: `Task Reminder: ${task.title}`,
+          message: `Your task "${task.title}" is due soon at ${new Date(task.due_date!).toLocaleString()}`,
+          userId: userId,
+          taskId: task.id,
+        },
+      });
 
       await transporter.sendMail({
         from: '"Task Manager" <your.email@gmail.com>',
@@ -52,5 +65,72 @@ export async function sendUpcomingTaskReminders() {
     console.log("✅ Task reminders sent successfully");
   } catch (error) {
     console.error("❌ Error sending task reminders:", error);
+  }
+}
+
+// Function to get user notifications
+export async function getUserNotifications(userId: string) {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: {
+        userId: userId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            title: true,
+            due_date: true,
+          },
+        },
+      },
+    });
+
+    return notifications;
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return [];
+  }
+}
+
+// Function to mark a notification as read
+export async function markNotificationAsRead(notificationId: string) {
+  try {
+    await prisma.notification.update({
+      where: {
+        id: notificationId,
+      },
+      data: {
+        read: true,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    return { success: false, error };
+  }
+}
+
+// Function to mark all notifications as read
+export async function markAllNotificationsAsRead(userId: string) {
+  try {
+    await prisma.notification.updateMany({
+      where: {
+        userId: userId,
+        read: false,
+      },
+      data: {
+        read: true,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    return { success: false, error };
   }
 }

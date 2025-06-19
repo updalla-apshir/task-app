@@ -181,6 +181,7 @@ export const addTeamMember = async (teamId: string, formData: FormData) => {
         email: true,
       },
     });
+    if (userToAdd) throw new Error("User is already Registered");
 
     if (!userToAdd) {
       // Register new user
@@ -191,10 +192,10 @@ export const addTeamMember = async (teamId: string, formData: FormData) => {
       });
 
       if (!result.success) {
-        let errorMessage = 'Failed to create user';
-        
+        let errorMessage = "Failed to create user";
+
         if (result.errors) {
-          if ('general' in result.errors && result.errors.general?.length > 0) {
+          if ("general" in result.errors && result.errors.general?.length > 0) {
             errorMessage = result.errors.general[0];
           } else {
             const firstError = Object.values(result.errors)[0];
@@ -203,7 +204,7 @@ export const addTeamMember = async (teamId: string, formData: FormData) => {
             }
           }
         }
-        
+
         throw new Error(errorMessage);
       }
 

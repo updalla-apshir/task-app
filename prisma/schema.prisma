@@ -54,6 +54,7 @@ model User {
   ownedProjects                 Project[]           @relation("ProjectOwner")
   createdTasks                  Task[]              @relation("CreatedTasks")
   assignedTasks                 ProjectAssignment[]
+  notifications                 Notification[]
 }
 
 model Team {
@@ -116,10 +117,11 @@ model Task {
   project_id   String       @db.ObjectId
   is_completed Boolean      @default(false)
   is_archived  Boolean      @default(false)
-  reminderSent Boolean      @default(false) // ✅ Add this line
+  reminderSent Boolean      @default(false)
 
-  createdBy User    @relation("CreatedTasks", fields: [created_by], references: [id])
-  project   Project @relation(fields: [project_id], references: [id])
+  createdBy     User           @relation("CreatedTasks", fields: [created_by], references: [id])
+  project       Project        @relation(fields: [project_id], references: [id])
+  notifications Notification[]
 
   @@index([created_by])
   @@index([project_id])
@@ -188,4 +190,20 @@ model ProjectAssignment {
   @@unique([userId, projectId])
   @@index([userId])
   @@index([projectId])
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String   @db.ObjectId
+  taskId    String?  @db.ObjectId
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([taskId])
 }

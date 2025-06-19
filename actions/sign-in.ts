@@ -15,6 +15,7 @@ export const userdata = async (email: string) => {
       email: user.email,
       password: user.password,
       enableTwoFactorAuthentication: user.enableTwoFactorAuthentication,
+      role: user.role,
     };
   } catch (error) {
     console.error("Error fetching user data:", error);

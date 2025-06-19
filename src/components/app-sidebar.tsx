@@ -20,13 +20,15 @@ import { NavMain } from "./nav-main";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import Logo from "./Logo";
-
-const data = {
+import UpgradeFooter from "./upgradeFooter";
+import { useSession } from "next-auth/react";
+const sideData = {
   user: {
     name: "shadcn",
     email: "m@example.com",
@@ -108,6 +110,8 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state, setOpen } = useSidebar();
   const [isHovered, setIsHovered] = React.useState(false);
+  const { data } = useSession();
+  const userRole = data?.user.role;
 
   const handleMouseEnter = () => {
     if (state === "collapsed") {
@@ -135,9 +139,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-2">
-        <NavMain items={data.navMain} />
+        <NavMain items={sideData.navMain} role={userRole ?? ""} />
       </SidebarContent>
 
+      <SidebarFooter>
+        <UpgradeFooter />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

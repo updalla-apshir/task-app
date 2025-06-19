@@ -9,6 +9,7 @@ import { ReduxProvider } from "@/providers/redux-provider"; // adjust the path
 import { usePathname } from "next/navigation";
 import { TaskProvider } from "@/contexts/TaskContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// import { useSession } from "next-auth/react";
 
 export default function RootLayout({
   children,
@@ -28,6 +29,8 @@ export default function RootLayout({
 
   const shouldUseLayout = !noLayoutRoutes.includes(pathname);
   const queryClient = new QueryClient();
+  // const { data } = useSession();
+  // const role = data?.user.role;
 
   return (
     <html lang="en" suppressHydrationWarning>

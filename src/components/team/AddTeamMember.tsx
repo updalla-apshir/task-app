@@ -20,11 +20,14 @@ import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userRegisterSchema } from "@/schemas/shema";
 import { FormControl, FormField, FormItem, FormMessage } from "../ui/form";
+import { z } from "zod";
 
 interface AddTeamMemberProps {
   teamId: string;
   onMemberAdd: () => void;
 }
+
+type RegisterFormValues = z.infer<typeof userRegisterSchema>;
 
 export function AddTeamMember({ teamId, onMemberAdd }: AddTeamMemberProps) {
   const [open, setOpen] = useState(false);
@@ -40,15 +43,19 @@ export function AddTeamMember({ teamId, onMemberAdd }: AddTeamMemberProps) {
     },
   });
 
-  async function onSubmit(formData: FormData) {
+  async function onSubmit(formData: RegisterFormValues) {
     setIsLoading(true);
     try {
-      const result = await addTeamMember(teamId, formData);
+      const data = new FormData();
+      data.append("email", formData.email);
+      data.append("password", formData.password);
+      data.append("confirmPassword", formData.confirmPassword);
+      const result = await addTeamMember(teamId, data);
       if (result.success) {
         toast.success("Team member added successfully");
         setOpen(false);
         onMemberAdd();
-        router.refresh();
+        form.reset();
       } else {
         toast.error(result.error || "Failed to add team member");
       }
@@ -80,7 +87,7 @@ export function AddTeamMember({ teamId, onMemberAdd }: AddTeamMemberProps) {
           </DialogDescription>
         </DialogHeader>
         <FormProvider {...form}>
-          <form action={onSubmit} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Email Field */}
 
             <FormField

@@ -14,18 +14,16 @@ import { CheckCircle2 } from "lucide-react";
 import { format, isToday, isThisWeek } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
+import { TableSkeleton } from "@/app/team/page";
 
 function CompletedTasksContent() {
   const { value } = useValue();
   const [open, setOpen] = React.useState(false);
   const { data: session } = useSession();
   const userId = session?.user?.id;
-  
+
   // Use React Query to fetch tasks
-  const { 
-    data: allTasks = [], 
-    isLoading 
-  } = useQuery<Task[]>({
+  const { data: allTasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["tasks", userId],
     queryFn: async () => {
       if (!userId) return [];
@@ -46,17 +44,21 @@ function CompletedTasksContent() {
 
   // Calculate completion statistics
   const totalTasks = tasks.length;
-  const completedToday = tasks.filter(task => isToday(new Date(task.due_date))).length;
-  const completedThisWeek = tasks.filter(task => isThisWeek(new Date(task.due_date))).length;
+  const completedToday = tasks.filter((task) =>
+    isToday(new Date(task.due_date))
+  ).length;
+  const completedThisWeek = tasks.filter((task) =>
+    isThisWeek(new Date(task.due_date))
+  ).length;
 
   // Group tasks by priority
-  const highPriority = tasks.filter(task => task.priority === "HIGH").length;
-  const mediumPriority = tasks.filter(task => task.priority === "MEDIUM").length;
-  const lowPriority = tasks.filter(task => task.priority === "LOW").length;
+  const highPriority = tasks.filter((task) => task.priority === "HIGH").length;
+  const mediumPriority = tasks.filter(
+    (task) => task.priority === "MEDIUM"
+  ).length;
+  const lowPriority = tasks.filter((task) => task.priority === "LOW").length;
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading tasks...</div>;
-  }
+  if (isLoading) return <TableSkeleton />;
 
   return (
     <div className="flex flex-col h-screen">
@@ -64,20 +66,27 @@ function CompletedTasksContent() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-6 w-6 text-green-500" />
-            <h2 className="text-2xl font-bold tracking-tight">Completed Tasks</h2>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Completed Tasks
+            </h2>
           </div>
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">
-                Great job! You've completed {totalTasks} task{totalTasks !== 1 ? "s" : ""}.
+                Great job! You've completed {totalTasks} task
+                {totalTasks !== 1 ? "s" : ""}.
               </p>
               <div className="flex gap-4 text-xs">
                 <div className="flex flex-col">
-                  <span className="text-green-500 font-medium">{completedToday}</span>
+                  <span className="text-green-500 font-medium">
+                    {completedToday}
+                  </span>
                   <span className="text-muted-foreground">Today</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-green-500 font-medium">{completedThisWeek}</span>
+                  <span className="text-green-500 font-medium">
+                    {completedThisWeek}
+                  </span>
                   <span className="text-muted-foreground">This Week</span>
                 </div>
               </div>

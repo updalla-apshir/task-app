@@ -9,6 +9,7 @@ import {
   PasswordUpdateSchema,
   SecuritySettingsSchema,
   PrivacySettingsSchema,
+  PremiumUpgradeSchema,
 } from "@/schemas/settings";
 
 // Get user settings
@@ -26,6 +27,7 @@ export async function getUserSettings() {
         id: true,
         name: true,
         email: true,
+        role: true,
       },
     });
 
@@ -38,6 +40,7 @@ export async function getUserSettings() {
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     };
   } catch (error) {
@@ -158,31 +161,66 @@ export async function updateSecuritySettings(formData: FormData) {
   const session = await auth();
 
   if (!session?.user?.email) {
+    console.error("No user email in session");
     return { error: "Unauthorized" };
   }
 
   try {
-    const twoFactorEnabled = formData.get("twoFactorEnabled") === "true";
+    const rawValue = formData.get("twoFactorEnabled");
+    console.log("Raw twoFactorEnabled value from form:", rawValue);
+    
+    const twoFactorEnabled = rawValue === "true";
+    console.log("Converted twoFactorEnabled value:", twoFactorEnabled);
 
     const validatedFields = SecuritySettingsSchema.safeParse({
       twoFactorEnabled,
     });
 
     if (!validatedFields.success) {
+      console.error("Validation error:", validatedFields.error.flatten());
       return { error: validatedFields.error.flatten().fieldErrors };
     }
 
-    await prisma.user.update({
+    // Get current user data to verify the change
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { 
+        id: true,
+        email: true,
+        enableTwoFactorAuthentication: true 
+      }
+    });
+    
+    console.log("Current user 2FA status:", currentUser?.enableTwoFactorAuthentication);
+
+    if (!currentUser) {
+      console.error("User not found in database");
+      return { error: "User not found" };
+    }
+
+    // Update user with 2FA status
+    const updatedUser = await prisma.user.update({
       where: { email: session.user.email },
       data: {
         enableTwoFactorAuthentication: twoFactorEnabled,
       },
+      select: {
+        id: true,
+        email: true,
+        enableTwoFactorAuthentication: true,
+      },
     });
 
+    console.log("Updated user 2FA status:", updatedUser.enableTwoFactorAuthentication);
+
+    // Make sure we always return a boolean value, defaulting to false if null
+    const updatedTwoFactorEnabled = updatedUser.enableTwoFactorAuthentication === true;
+
     revalidatePath("/settings");
+
     return {
-      success: `Two-factor authentication ${twoFactorEnabled ? "enabled" : "disabled"}`,
-      twoFactorEnabled,
+      success: `Two-factor authentication ${updatedTwoFactorEnabled ? "enabled" : "disabled"}`,
+      twoFactorEnabled: updatedTwoFactorEnabled, // Always a boolean value
     };
   } catch (error) {
     console.error("Error updating security settings:", error);
@@ -214,7 +252,6 @@ export async function updatePrivacySettings(formData: FormData) {
     }
 
     // Update user privacy settings
-    // Note: You would need to add these fields to your user model or create a userPreferences model
     // This is a simplified implementation
     // await prisma.userPreferences.upsert({
     //   where: { userId: session.user.id },
@@ -236,5 +273,72 @@ export async function updatePrivacySettings(formData: FormData) {
   } catch (error) {
     console.error("Error updating privacy settings:", error);
     return { error: "Failed to update privacy settings" };
+  }
+}
+
+// Upgrade to premium
+export async function upgradeToPremium(formData: FormData) {
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    console.error("No user email in session");
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const validatedFields = PremiumUpgradeSchema.safeParse({
+      fullName: formData.get("fullName"),
+      cardNumber: formData.get("cardNumber"),
+      expiryDate: formData.get("expiryDate"),
+      cvv: formData.get("cvv"),
+    });
+
+    if (!validatedFields.success) {
+      console.error("Validation error:", validatedFields.error.flatten());
+      return { error: validatedFields.error.flatten().fieldErrors };
+    }
+
+    // In a real app, you would process payment here
+    // This is a demo so we'll just update the role
+
+    // Get current user data
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { 
+        id: true,
+        email: true,
+        role: true
+      }
+    });
+    
+    if (!currentUser) {
+      console.error("User not found in database");
+      return { error: "User not found" };
+    }
+
+    // Update user role to Premium
+    const updatedUser = await prisma.user.update({
+      where: { email: session.user.email },
+      data: {
+        role: "Premium",
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    console.log("Updated user role:", updatedUser.role);
+
+    revalidatePath("/settings");
+
+    return {
+      success: "Successfully upgraded to Premium!",
+      role: updatedUser.role,
+    };
+  } catch (error) {
+    console.error("Error upgrading to premium:", error);
+    return { error: "Failed to upgrade to premium" };
   }
 }

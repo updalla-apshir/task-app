@@ -48,7 +48,7 @@ const useTeam = () => {
   });
 };
 
-const TableSkeleton = () => (
+export const TableSkeleton = () => (
   <div className="space-y-4">
     <Skeleton className="h-10 w-[250px]" />
     <div className="border rounded-lg">

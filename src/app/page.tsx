@@ -1,3 +1,4 @@
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { auth } from "@/lib/auth";
 
 export default async function Home() {
@@ -10,8 +11,8 @@ export default async function Home() {
     );
   }
   return (
-    <div className="p-4">
-      {/* your page content */}
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <DashboardLayout />
     </div>
   );
 }

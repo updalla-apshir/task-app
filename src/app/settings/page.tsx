@@ -8,27 +8,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { LockIcon, ShieldIcon, UserIcon, EyeIcon } from "lucide-react";
+import { ShieldIcon, EyeIcon, CrownIcon, CreditCardIcon } from "lucide-react";
 import {
   getUserSettings,
-  updateAccountSettings,
-  updatePassword,
-  updateSecuritySettings,
   updatePrivacySettings,
+  updateSecuritySettings,
+  upgradeToPremium,
 } from "../../../actions/settings";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  AccountSettingsSchema,
-  PasswordUpdateSchema,
   SecuritySettingsSchema,
   PrivacySettingsSchema,
+  PremiumUpgradeSchema,
 } from "@/schemas/settings";
 import { z } from "zod";
 import {
@@ -37,38 +33,26 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
+import { TableSkeleton } from "../team/page";
+import { userdata } from "../../../actions/sign-in";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 type UserState = {
   id: string;
   name: string;
   email: string;
+  role?: string;
 };
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<UserState | null>(null);
-  const [passwordChangeMode, setPasswordChangeMode] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-
-  // Forms
-  const accountForm = useForm({
-    resolver: zodResolver(AccountSettingsSchema),
-    defaultValues: {
-      email: "",
-      username: "",
-    },
-  });
-
-  const passwordForm = useForm({
-    resolver: zodResolver(PasswordUpdateSchema),
-    defaultValues: {
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    },
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [isPremiumDialogOpen, setIsPremiumDialogOpen] = useState(false);
 
   const securityForm = useForm({
     resolver: zodResolver(SecuritySettingsSchema),
@@ -86,7 +70,16 @@ export default function SettingsPage() {
     },
   });
 
-  // Fetch user settings
+  const premiumForm = useForm({
+    resolver: zodResolver(PremiumUpgradeSchema),
+    defaultValues: {
+      fullName: "",
+      cardNumber: "",
+      expiryDate: "",
+      cvv: "",
+    },
+  });
+
   useEffect(() => {
     const fetchSettings = async () => {
       setIsLoading(true);
@@ -95,15 +88,24 @@ export default function SettingsPage() {
         if (result.error) {
           toast.error(result.error);
         } else if (result.user) {
+          const userEmail = result.user.email || "";
           setUser({
             id: result.user.id,
             name: result.user.name || "",
-            email: result.user.email || "",
+            email: userEmail,
+            role: result.user.role,
           });
-          accountForm.reset({
-            email: result.user.email || "",
-            username: result.user.name || "",
-          });
+
+          // Check if user is premium from getUserSettings
+          setIsPremium(result.user.role === "Premium");
+
+          // 🔁 Get 2FA status from DB
+          const user2faData = await userdata(userEmail);
+          const is2faEnabled =
+            user2faData?.enableTwoFactorAuthentication ?? false;
+
+          setTwoFactorEnabled(is2faEnabled);
+          securityForm.setValue("twoFactorEnabled", is2faEnabled);
         }
       } catch (error) {
         toast.error("Failed to load settings");
@@ -115,107 +117,43 @@ export default function SettingsPage() {
     fetchSettings();
   }, []);
 
-  // Handle account form submission
-  const handleAccountSubmit = async (
-    data: z.infer<typeof AccountSettingsSchema>
-  ) => {
-    const formData = new FormData();
-    formData.append("email", data.email);
-    formData.append("username", data.username);
-
-    try {
-      const result = await updateAccountSettings(formData);
-      if (result.error) {
-        if (typeof result.error === "string") {
-          toast.error(result.error);
-        } else {
-          // Handle field errors
-          Object.entries(result.error).forEach(([field, errors]) => {
-            if (Array.isArray(errors)) {
-              errors.forEach((error) => {
-                accountForm.setError(field as any, { message: error });
-              });
-            }
-          });
-        }
-      } else if (result.success) {
-        toast.success(result.success);
-        // Update local user state
-        setUser((prev) =>
-          prev ? { ...prev, name: data.username, email: data.email } : null
-        );
-      }
-    } catch (error) {
-      toast.error("Failed to update account settings");
-    }
-  };
-
-  // Handle password form submission
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const data = passwordForm.getValues();
-    const formData = new FormData();
-    formData.append("currentPassword", data.currentPassword);
-    formData.append("newPassword", data.newPassword);
-    formData.append("confirmPassword", data.confirmPassword);
-
-    try {
-      const result = await updatePassword(formData);
-      if (result.error) {
-        if (typeof result.error === "string") {
-          toast.error(result.error);
-        } else {
-          // Handle field errors
-          Object.entries(result.error).forEach(([field, errors]) => {
-            if (Array.isArray(errors)) {
-              errors.forEach((error) => {
-                passwordForm.setError(field as any, { message: error });
-              });
-            }
-          });
-        }
-      } else if (result.success) {
-        toast.success(result.success);
-        setPasswordChangeMode(false);
-        passwordForm.reset();
-      }
-    } catch (error) {
-      toast.error("Failed to update password");
-    }
-  };
-
-  // Handle security form submission
   const handleSecuritySubmit = async (
     data: z.infer<typeof SecuritySettingsSchema>
   ) => {
-    // Toggle the value before sending to the server
-    const newTwoFactorState = !twoFactorEnabled;
-
+    // Prevent duplicate submissions
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     const formData = new FormData();
-    formData.append("twoFactorEnabled", newTwoFactorState.toString());
+    formData.append("twoFactorEnabled", data.twoFactorEnabled.toString());
 
     try {
       const result = await updateSecuritySettings(formData);
+
       if (result.error) {
         toast.error(
           typeof result.error === "string"
             ? result.error
             : "Failed to update security settings"
         );
+        
+        // Revert form value to match the server state
+        securityForm.setValue("twoFactorEnabled", twoFactorEnabled);
       } else if (result.success) {
         toast.success(result.success);
-        // Update the state with the new value
-        setTwoFactorEnabled(newTwoFactorState);
-        // Also update the form value
-        securityForm.setValue("twoFactorEnabled", newTwoFactorState);
+        
+        // Only update UI after successful server response
+        setTwoFactorEnabled(result.twoFactorEnabled);
       }
     } catch (error) {
       toast.error("Failed to update security settings");
+      // Revert form value to match the server state
+      securityForm.setValue("twoFactorEnabled", twoFactorEnabled);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handle privacy form submission
   const handlePrivacySubmit = async (
     data: z.infer<typeof PrivacySettingsSchema>
   ) => {
@@ -240,157 +178,161 @@ export default function SettingsPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className=" mx-4 py-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Settings</h1>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <p>Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
+  const handlePremiumSubmit = async (
+    data: z.infer<typeof PremiumUpgradeSchema>
+  ) => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    const formData = new FormData();
+    formData.append("fullName", data.fullName);
+    formData.append("cardNumber", data.cardNumber);
+    formData.append("expiryDate", data.expiryDate);
+    formData.append("cvv", data.cvv);
+
+    try {
+      const result = await upgradeToPremium(formData);
+
+      if (result.error) {
+        toast.error(
+          typeof result.error === "string"
+            ? result.error
+            : "Failed to upgrade to premium"
+        );
+      } else if (result.success) {
+        toast.success(result.success);
+        setIsPremium(result.role === "Premium");
+        setIsPremiumDialogOpen(false);
+        premiumForm.reset();
+      }
+    } catch (error) {
+      toast.error("Failed to upgrade to premium");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) return <TableSkeleton />;
 
   return (
-    <div className=" mx-4 py-8 space-y-8">
+    <div className="mx-4 py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Settings</h1>
+        {!isPremium && (
+          <Button 
+            onClick={() => setIsPremiumDialogOpen(true)} 
+            className="bg-gradient-to-r from-amber-500 to-amber-300 hover:from-amber-600 hover:to-amber-400"
+          >
+            <CrownIcon className="h-4 w-4 mr-2" />
+            Upgrade to Premium
+          </Button>
+        )}
+        {isPremium && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-300 rounded-md text-white">
+            <CrownIcon className="h-4 w-4" />
+            <span className="font-medium">Premium Member</span>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Account Settings */}
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2">
-            <UserIcon className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <CardTitle>Account Settings</CardTitle>
-              <CardDescription>Manage your account information</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Form {...accountForm}>
-              <form
-                onSubmit={accountForm.handleSubmit(handleAccountSubmit)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={accountForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={accountForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  {passwordChangeMode ? (
-                    <Form {...passwordForm}>
-                      <div className="space-y-4">
-                        <FormField
-                          control={passwordForm.control}
-                          name="currentPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Current Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={passwordForm.control}
-                          name="newPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>New Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={passwordForm.control}
-                          name="confirmPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Confirm Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="flex gap-2">
-                          <Button type="button" onClick={handlePasswordSubmit}>
-                            Update Password
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setPasswordChangeMode(false);
-                              passwordForm.reset();
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    </Form>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        id="password"
-                        type="password"
-                        value="••••••••"
-                        disabled
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={() => setPasswordChangeMode(true)}
-                      >
-                        Change
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {!passwordChangeMode && (
-                  <Button type="submit" className="w-full">
-                    Save Changes
-                  </Button>
+      {/* Premium Upgrade Dialog */}
+      <Dialog open={isPremiumDialogOpen} onOpenChange={setIsPremiumDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CrownIcon className="h-5 w-5 text-amber-500" />
+              Upgrade to Premium
+            </DialogTitle>
+            <DialogDescription>
+              Get access to premium features and benefits
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4 bg-amber-50 rounded-md mb-4">
+            <h3 className="font-semibold text-amber-800 mb-2">Premium Benefits:</h3>
+            <ul className="space-y-1 text-amber-700 text-sm">
+              <li>• Unlimited projects and tasks</li>
+              <li>• Advanced analytics and reporting</li>
+              <li>• Priority customer support</li>
+              <li>• Custom themes and branding</li>
+              <li>• Team collaboration features</li>
+            </ul>
+            <p className="mt-3 text-sm font-medium text-amber-800">Only $9.99/month</p>
+          </div>
+          <Form {...premiumForm}>
+            <form onSubmit={premiumForm.handleSubmit(handlePremiumSubmit)} className="space-y-4">
+              <FormField
+                control={premiumForm.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                  </FormItem>
                 )}
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+              />
+              <FormField
+                control={premiumForm.control}
+                name="cardNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Card Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="4242 4242 4242 4242" {...field} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={premiumForm.control}
+                  name="expiryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expiry Date</FormLabel>
+                      <FormControl>
+                        <Input placeholder="MM/YY" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={premiumForm.control}
+                  name="cvv"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CVV</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123" type="password" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-300 hover:from-amber-600 hover:to-amber-400"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  "Processing..."
+                ) : (
+                  <>
+                    <CreditCardIcon className="h-4 w-4 mr-2" />
+                    Upgrade Now
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                This is a demo. No actual payment will be processed.
+              </p>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:grid-cols-1">
         {/* Security Settings */}
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
@@ -421,18 +363,22 @@ export default function SettingsPage() {
                       </div>
                       <FormControl>
                         <Switch
-                          checked={twoFactorEnabled}
+                          checked={field.value}
+                          disabled={isSubmitting}
                           onCheckedChange={(checked) => {
-                            // Don't update the form value here, just update the UI state
-                            // The form submission will handle the actual change
-                            setTwoFactorEnabled(checked);
+                            // Only update form value, not the state
                             field.onChange(checked);
+                            // Submit the form automatically
+                            setTimeout(() => {
+                              securityForm.handleSubmit(handleSecuritySubmit)();
+                            }, 0);
                           }}
                         />
                       </FormControl>
                     </FormItem>
                   )}
                 />
+
                 <div className="rounded-md bg-muted p-3 flex items-center justify-between">
                   <div>
                     <p className="font-medium">2FA Status</p>
@@ -441,16 +387,25 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <div
-                    className={`h-3 w-3 rounded-full ${twoFactorEnabled ? "bg-green-500" : "bg-red-500"}`}
+                    className={`h-3 w-3 rounded-full ${
+                      twoFactorEnabled ? "bg-green-500" : "bg-red-500"
+                    }`}
                   ></div>
                 </div>
+
                 <Button
                   type="button"
-                  variant={twoFactorEnabled ? "destructive" : "default"}
                   className="w-full"
-                  onClick={() => handleSecuritySubmit({ twoFactorEnabled })}
+                  variant={twoFactorEnabled ? "destructive" : "default"}
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    // Toggle the value in the form and trigger the submit
+                    const newValue = !securityForm.getValues().twoFactorEnabled;
+                    securityForm.setValue("twoFactorEnabled", newValue);
+                    securityForm.handleSubmit(handleSecuritySubmit)();
+                  }}
                 >
-                  {twoFactorEnabled ? "Disable 2FA" : "Setup 2FA"}
+                  {isSubmitting ? "Updating..." : (twoFactorEnabled ? "Disable 2FA" : "Setup 2FA")}
                 </Button>
               </form>
             </Form>
@@ -458,7 +413,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Privacy Settings */}
-        <Card className="md:col-span-2">
+        <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <EyeIcon className="h-5 w-5 text-muted-foreground" />
             <div>

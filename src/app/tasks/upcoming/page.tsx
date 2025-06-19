@@ -14,18 +14,16 @@ import { Calendar } from "lucide-react";
 import { isAfter, isBefore, startOfToday, endOfWeek } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
+import { TableSkeleton } from "@/app/team/page";
 
 function UpcomingTasksContent() {
   const { value } = useValue();
   const [open, setOpen] = React.useState(false);
   const { data: session } = useSession();
   const userId = session?.user?.id;
-  
+
   // Use React Query to fetch tasks
-  const { 
-    data: allTasks = [], 
-    isLoading 
-  } = useQuery<Task[]>({
+  const { data: allTasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["tasks", userId],
     queryFn: async () => {
       if (!userId) return [];
@@ -50,18 +48,19 @@ function UpcomingTasksContent() {
     // This will be handled by the TaskProvider and parent components
   };
 
-  const completedTasks = tasks.filter(task => task.isCompleted);
+  const completedTasks = tasks.filter((task) => task.isCompleted);
   const totalTasks = tasks.length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+  const completionRate =
+    totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
 
   // Group tasks by priority
-  const highPriority = tasks.filter(task => task.priority === "HIGH").length;
-  const mediumPriority = tasks.filter(task => task.priority === "MEDIUM").length;
-  const lowPriority = tasks.filter(task => task.priority === "LOW").length;
+  const highPriority = tasks.filter((task) => task.priority === "HIGH").length;
+  const mediumPriority = tasks.filter(
+    (task) => task.priority === "MEDIUM"
+  ).length;
+  const lowPriority = tasks.filter((task) => task.priority === "LOW").length;
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading tasks...</div>;
-  }
+  if (isLoading) return <TableSkeleton />;
 
   return (
     <div className="flex flex-col h-screen">
@@ -69,17 +68,26 @@ function UpcomingTasksContent() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Calendar className="h-6 w-6 text-purple-500" />
-            <h2 className="text-2xl font-bold tracking-tight">Upcoming Tasks</h2>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Upcoming Tasks
+            </h2>
           </div>
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">
-                Plan ahead for the upcoming week. You have {tasks.length} task{tasks.length !== 1 ? "s" : ""} scheduled.
+                Plan ahead for the upcoming week. You have {tasks.length} task
+                {tasks.length !== 1 ? "s" : ""} scheduled.
               </p>
               <div className="flex gap-3 text-xs text-muted-foreground">
-                <span className="text-red-500">{highPriority} high priority</span>
-                <span className="text-yellow-500">{mediumPriority} medium priority</span>
-                <span className="text-green-500">{lowPriority} low priority</span>
+                <span className="text-red-500">
+                  {highPriority} high priority
+                </span>
+                <span className="text-yellow-500">
+                  {mediumPriority} medium priority
+                </span>
+                <span className="text-green-500">
+                  {lowPriority} low priority
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -87,7 +95,7 @@ function UpcomingTasksContent() {
                 {completedTasks.length}/{totalTasks} completed
               </div>
               <div className="h-2 w-20 bg-gray-200 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-purple-500 transition-all duration-300"
                   style={{ width: `${completionRate}%` }}
                 />

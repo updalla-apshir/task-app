@@ -52,6 +52,7 @@ export function DataTable<TData, TValue>({
     React.useState<VisibilityState>({
       id: false,
     });
+
   const table = useReactTable({
     data,
     columns,
@@ -75,20 +76,18 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div>
-      <div className="pb-4">
-        <DataTableToolbar table={table} />
-      </div>
-      <div className="w-full overflow-x-auto border rounded-md">
-        <table className="min-w-[850px] w-full text-sm">
-          <thead className="bg-background border-b">
+    <div className="space-y-3 mt-2 ">
+      <DataTableToolbar table={table} />
+      <div className="">
+        <Table className="w-full table-auto">
+          <TableHeader className="bg-muted/50">
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="h-10">
                 {headerGroup.headers.map((header) => (
-                  <th
+                  <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className="text-left whitespace-nowrap p-2"
+                    className="px-2 py-1 whitespace-nowrap"
                   >
                     {header.isPlaceholder
                       ? null
@@ -96,42 +95,46 @@ export function DataTable<TData, TValue>({
                           header.column.columnDef.header,
                           header.getContext()
                         )}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.length ? (
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <tr
+                <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-muted"
+                  className="h-9"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="whitespace-nowrap p-2">
+                    <TableCell
+                      key={cell.id}
+                      className="px-2 py-1 whitespace-nowrap"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
                       )}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))
             ) : (
-              <tr>
-                <td colSpan={columns.length} className="text-center p-4">
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-20 text-center text-muted-foreground"
+                >
                   No results.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-      <div className="pt-4">
-        <DataTablePagination table={table} />
-      </div>
+      <DataTablePagination table={table} />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { projectSchema } from "../../schemas/shema";
 import { toast } from "sonner";
+import { TableSkeleton } from "../team/page";
 
 interface TeamMember {
   id: string;
@@ -76,7 +77,7 @@ function ProjectsPageContent() {
     refetch,
   } = useQuery<Project[]>({
     queryKey: ["projects", userId],
-    queryFn: () => userId ? defaultProjects(userId) : Promise.resolve([]),
+    queryFn: () => (userId ? defaultProjects(userId) : Promise.resolve([])),
     retry: 2,
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
@@ -153,9 +154,7 @@ function ProjectsPageContent() {
 
         <div className="flex-1 min-h-0 p-4 w-full">
           {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <p>Loading projects...</p>
-            </div>
+            <TableSkeleton />
           ) : isError ? (
             <div className="flex items-center justify-center h-full">
               <p>Error loading projects. Please try again.</p>

@@ -11,17 +11,15 @@ import { TaskProvider } from "@/contexts/TaskContext";
 import { CalendarDays } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
+import { TableSkeleton } from "@/app/team/page";
 
 function TodayTasksContent() {
   const { value } = useValue();
   const { data: session } = useSession();
   const userId = session?.user?.id;
-  
+
   // Use React Query to fetch tasks
-  const { 
-    data: allTasks = [], 
-    isLoading 
-  } = useQuery<Task[]>({
+  const { data: allTasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["tasks", userId],
     queryFn: async () => {
       if (!userId) return [];
@@ -35,7 +33,7 @@ function TodayTasksContent() {
   const tasks = React.useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     return allTasks.filter((task) => {
       if (!task.due_date) return false;
       const taskDate = new Date(task.due_date);
@@ -48,13 +46,12 @@ function TodayTasksContent() {
     // This will be handled by the TaskProvider and parent components
   };
 
-  const completedTasks = tasks.filter(task => task.isCompleted);
+  const completedTasks = tasks.filter((task) => task.isCompleted);
   const totalTasks = tasks.length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
+  const completionRate =
+    totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading tasks...</div>;
-  }
+  if (isLoading) return <TableSkeleton />;
 
   return (
     <div className="flex flex-col h-screen">
@@ -66,14 +63,15 @@ function TodayTasksContent() {
           </div>
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Focus on what needs to be done today. You have {tasks.length} task{tasks.length !== 1 ? "s" : ""} scheduled.
+              Focus on what needs to be done today. You have {tasks.length} task
+              {tasks.length !== 1 ? "s" : ""} scheduled.
             </p>
             <div className="flex items-center gap-2">
               <div className="text-sm font-medium">
                 {completedTasks.length}/{totalTasks} completed
               </div>
               <div className="h-2 w-20 bg-gray-200 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-green-500 transition-all duration-300"
                   style={{ width: `${completionRate}%` }}
                 />

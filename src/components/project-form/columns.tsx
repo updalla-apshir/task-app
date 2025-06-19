@@ -64,7 +64,7 @@ export const columns: ColumnDef<Project>[] = [
     ),
     cell: ({ row }) => {
       return (
-        <div className="flex space-x-2">
+        <div className="flex gap-1 items-center">
           <span className="max-w-[500px] truncate font-medium">
             {row.getValue("name")}
           </span>
@@ -145,11 +145,11 @@ export const columns: ColumnDef<Project>[] = [
     cell: ({ row }) => {
       const teamMembers = row.getValue("teamMembers") as TeamMember[];
       return (
-        <div className="flex -space-x-2">
+        <div className="flex gap-1 items-center">
           {teamMembers.map((member) => (
             <Avatar
               key={member.id}
-              className="h-8 w-8 border-2 border-background"
+              className="h-6 w-6 border-2 border-background"
             >
               {member.avatar ? (
                 <img src={member.avatar} alt={member.name} />
@@ -164,20 +164,7 @@ export const columns: ColumnDef<Project>[] = [
       );
     },
   },
-  {
-    accessorKey: "startDate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Start Date" />
-    ),
-    cell: ({ row }) => {
-      const date = row.getValue("startDate") as Date;
-      return date ? (
-        <div className="flex items-center">
-          <span>{format(date, "MMM d, yyyy")}</span>
-        </div>
-      ) : null;
-    },
-  },
+
   {
     accessorKey: "endDate",
     header: ({ column }) => (

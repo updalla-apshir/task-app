@@ -17,15 +17,16 @@ import { useSession } from "next-auth/react";
 import { TaskProvider } from "@/contexts/TaskContext";
 import { updateTaskCompletionStatus } from "../../../actions/task";
 import { toast } from "sonner";
+import { TableSkeleton } from "../team/page";
 
 function TasksPageContent() {
   const { value, setValue } = useValue();
   const [open, setOpen] = React.useState(false);
   const { data: session } = useSession();
   const userId = session?.user?.id;
+  const useRole = session?.user.role;
   const queryClient = useQueryClient();
-  
-  // Maintain local state of tasks that both views will use
+
   const [localTasks, setLocalTasks] = React.useState<Task[]>([]);
 
   // Fetch tasks query
@@ -46,7 +47,7 @@ function TasksPageContent() {
     refetchOnWindowFocus: true, // Enable refetch on focus
     enabled: !!userId,
   });
-  
+
   // Update local state whenever query data changes
   React.useEffect(() => {
     if (tasks && tasks.length > 0) {
@@ -55,135 +56,161 @@ function TasksPageContent() {
   }, [tasks]);
 
   // Handle task form submission
-  const handleTaskSubmit = React.useCallback((task: any) => {
-    console.log("Task submitted:", task);
-    
-    // Update local state immediately for optimistic UI
-    if (!task.error) {
-      if (task.id.startsWith('temp-')) {
-        // New task - add to local state
-        setLocalTasks(prev => [...prev, task]);
-      } else {
-        // Updated task - update in local state
-        setLocalTasks(prev => 
-          prev.map(t => t.id === task.id ? task : t)
-        );
+  const handleTaskSubmit = React.useCallback(
+    (task: any) => {
+      console.log("Task submitted:", task);
+
+      // Update local state immediately for optimistic UI
+      if (!task.error) {
+        if (task.id.startsWith("temp-")) {
+          // New task - add to local state
+          setLocalTasks((prev) => [...prev, task]);
+        } else {
+          // Updated task - update in local state
+          setLocalTasks((prev) =>
+            prev.map((t) => (t.id === task.id ? task : t))
+          );
+        }
       }
-    }
-    
-    // Refresh data from server with a slight delay to ensure server has processed the change
-    setTimeout(() => {
-      refetch();
-    }, 300);
-    
-    // Close the dialog if open
-    if (open) setOpen(false);
-  }, [refetch, open]);
+
+      setTimeout(() => {
+        refetch();
+      }, 300);
+
+      // Close the dialog if open
+      if (open) setOpen(false);
+    },
+    [refetch, open]
+  );
 
   // Shared task update handler
-  const handleTaskUpdate = React.useCallback(async (updatedTask: Task) => {
-    try {
-      // Handle deleted tasks
-      if (updatedTask.deleted) {
-        return; // Already handled elsewhere
-      }
-      
-      // Always update UI state immediately for optimistic updates
-      setLocalTasks(prev => 
-        prev.map(task => task.id === updatedTask.id ? updatedTask : task)
-      );
-      
-      // If it's an optimistic update from a form submission
-      if (updatedTask.isOptimistic) {
-        console.log("Handling optimistic update:", updatedTask);
-        
-        // For completion status changes, always make sure we update the database
-        if (typeof updatedTask.isCompleted === 'boolean') {
-          try {
-            const isCompleted = updatedTask.isCompleted;
-            console.log(`Updating task ${updatedTask.id} completion status to ${isCompleted} (from form)`);
-            
-            // Show loading toast
-            const toastId = toast.loading("Updating task status...", { duration: 1500 });
-            
-            const result = await updateTaskCompletionStatus(updatedTask.id, isCompleted);
-            
-            if (!result.success) {
-              throw new Error(result.error || "Unknown error");
-            }
-            
-            // Update toast to success
-            toast.success(isCompleted ? "Task completed!" : "Task marked as in progress", {
-              id: toastId,
-              duration: 2000
-            });
-            
-            // Refresh data after update
-            refetch();
-          } catch (err) {
-            console.error('Failed to update task status in DB:', err);
-            toast.error("Failed to update task status in database", {
-              duration: 3000
-            });
-          }
+  const handleTaskUpdate = React.useCallback(
+    async (updatedTask: Task) => {
+      try {
+        // Handle deleted tasks
+        if (updatedTask.deleted) {
+          return; // Already handled elsewhere
         }
-        
-        // Refresh data after any optimistic update
-        setTimeout(() => {
-          refetch();
-        }, 300);
-        return;
-      }
-      
-      // For direct checkbox clicks that don't come from the edit form
-      if (typeof updatedTask.isCompleted === 'boolean' && !updatedTask.isOptimistic) {
-        // We've already updated the UI state above
-        
-        // Update the server
-        const isCompleted = updatedTask.isCompleted;
-        console.log(`Updating task ${updatedTask.id} completion status to ${isCompleted} (direct)`);
-        
-        // Show loading toast
-        const toastId = toast.loading("Updating task status...", { duration: 1500 });
-        
-        const result = await updateTaskCompletionStatus(updatedTask.id, isCompleted);
-        
-        if (result.success) {
-          // Update toast to success
-          toast.success(isCompleted ? "Task completed!" : "Task marked as in progress", {
-            id: toastId,
-            duration: 2000
-          });
-          
-          // Refresh data after update with a slight delay
+
+        // Always update UI state immediately for optimistic updates
+        setLocalTasks((prev) =>
+          prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+        );
+
+        // If it's an optimistic update from a form submission
+        if (updatedTask.isOptimistic) {
+          console.log("Handling optimistic update:", updatedTask);
+
+          // For completion status changes, always make sure we update the database
+          if (typeof updatedTask.isCompleted === "boolean") {
+            try {
+              const isCompleted = updatedTask.isCompleted;
+              console.log(
+                `Updating task ${updatedTask.id} completion status to ${isCompleted} (from form)`
+              );
+
+              // Show loading toast
+              const toastId = toast.loading("Updating task status...", {
+                duration: 1500,
+              });
+
+              const result = await updateTaskCompletionStatus(
+                updatedTask.id,
+                isCompleted
+              );
+
+              if (!result.success) {
+                throw new Error(result.error || "Unknown error");
+              }
+
+              // Update toast to success
+              toast.success(
+                isCompleted ? "Task completed!" : "Task marked as in progress",
+                {
+                  id: toastId,
+                  duration: 2000,
+                }
+              );
+
+              // Refresh data after update
+              refetch();
+            } catch (err) {
+              console.error("Failed to update task status in DB:", err);
+              toast.error("Failed to update task status in database", {
+                duration: 3000,
+              });
+            }
+          }
+
+          // Refresh data after any optimistic update
           setTimeout(() => {
             refetch();
           }, 300);
-        } else {
-          // Update toast to error
-          toast.error(result.error || "Failed to update task", {
-            id: toastId,
-            duration: 3000
-          });
-          
-          // Revert local state on error
-          setLocalTasks(tasks);
+          return;
         }
-      }
-    } catch (error) {
-      console.error("Failed to update task:", error);
-      toast.error("An error occurred while updating the task", {
-        duration: 3000
-      });
-      
-      // Revert on error
-      setLocalTasks(tasks);
-    }
-  }, [tasks, setLocalTasks, refetch]);
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading tasks...</div>;
-  }
+        // For direct checkbox clicks that don't come from the edit form
+        if (
+          typeof updatedTask.isCompleted === "boolean" &&
+          !updatedTask.isOptimistic
+        ) {
+          // We've already updated the UI state above
+
+          // Update the server
+          const isCompleted = updatedTask.isCompleted;
+          console.log(
+            `Updating task ${updatedTask.id} completion status to ${isCompleted} (direct)`
+          );
+
+          // Show loading toast
+          const toastId = toast.loading("Updating task status...", {
+            duration: 1500,
+          });
+
+          const result = await updateTaskCompletionStatus(
+            updatedTask.id,
+            isCompleted
+          );
+
+          if (result.success) {
+            // Update toast to success
+            toast.success(
+              isCompleted ? "Task completed!" : "Task marked as in progress",
+              {
+                id: toastId,
+                duration: 2000,
+              }
+            );
+
+            // Refresh data after update with a slight delay
+            setTimeout(() => {
+              refetch();
+            }, 300);
+          } else {
+            // Update toast to error
+            toast.error(result.error || "Failed to update task", {
+              id: toastId,
+              duration: 3000,
+            });
+
+            // Revert local state on error
+            setLocalTasks(tasks);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to update task:", error);
+        toast.error("An error occurred while updating the task", {
+          duration: 3000,
+        });
+
+        // Revert on error
+        setLocalTasks(tasks);
+      }
+    },
+    [tasks, setLocalTasks, refetch]
+  );
+
+  if (isLoading) return <TableSkeleton />;
 
   if (isError) {
     return (
@@ -194,29 +221,30 @@ function TasksPageContent() {
   }
 
   return (
-    <TaskProvider 
-      initialTasks={localTasks}
-      onUpdateTask={handleTaskUpdate}
-    >
+    <TaskProvider initialTasks={localTasks} onUpdateTask={handleTaskUpdate}>
       <div className="flex flex-col h-screen">
         <div className="flex-none p-4 ">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold tracking-tight">Tasks</h2>
             <div className="text-muted-foreground">
-              <Button
-                variant="default"
-                size="sm"
-                className="ml-auto h-8 lg:flex"
-                onClick={() => setOpen(true)}
-              >
-                Add Task
-              </Button>
-              <TaskForm 
-                open={open} 
-                setOpen={setOpen} 
-                onSubmit={handleTaskSubmit}
-                currentUserId={userId}
-              />
+              {useRole !== "Team_Member" ? (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="ml-auto h-8 lg:flex"
+                    onClick={() => setOpen(true)}
+                  >
+                    Add Task
+                  </Button>
+                  <TaskForm
+                    open={open}
+                    setOpen={setOpen}
+                    onSubmit={handleTaskSubmit}
+                    currentUserId={userId}
+                  />
+                </>
+              ) : null}
             </div>
           </div>
         </div>

@@ -19,11 +19,13 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const baseMenuItemClasses = "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left outline-hidden transition-colors hover:bg-primary/5 hover:text-primary";
+const baseMenuItemClasses =
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left outline-hidden transition-colors hover:bg-primary/5 hover:text-primary";
 const baseIconClasses = "h-4 w-4";
 
 export function NavMain({
   items,
+  role,
 }: {
   items: {
     title: string;
@@ -35,17 +37,26 @@ export function NavMain({
       url: string;
     }[];
   }[];
+  role: string;
 }) {
   const pathname = usePathname();
+
+  // ✅ Filter logic: only show Tasks if user is Team_Member
+  const filteredItems =
+    role === "Team_Member"
+      ? items.filter((item) => item.title === "Tasks")
+      : items;
 
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map((item) => {
+        {filteredItems.map((item) => {
           if (item.items && item.items.length > 0) {
-            const hasActiveChild = item.items.some(subItem => pathname === subItem.url);
+            const hasActiveChild = item.items.some(
+              (subItem) => pathname === subItem.url
+            );
             const isExactlyActive = pathname === item.url;
-            
+
             return (
               <Collapsible
                 key={item.title}
@@ -54,25 +65,33 @@ export function NavMain({
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       tooltip={item.title}
-                      className={cn(baseMenuItemClasses, isExactlyActive && "bg-primary/10 text-primary font-medium")}
+                      className={cn(
+                        baseMenuItemClasses,
+                        isExactlyActive &&
+                          "bg-primary/10 text-primary font-medium"
+                      )}
                     >
                       {item.icon && (
-                        <item.icon 
+                        <item.icon
                           className={cn(
                             baseIconClasses,
-                            isExactlyActive ? "text-primary" : "text-muted-foreground"
+                            isExactlyActive
+                              ? "text-primary"
+                              : "text-muted-foreground"
                           )}
                         />
                       )}
                       <span>{item.title}</span>
-                      <ChevronRight 
+                      <ChevronRight
                         className={cn(
                           baseIconClasses,
                           "ml-auto transition-transform duration-200",
                           "group-data-[state=open]/collapsible:rotate-90",
-                          isExactlyActive ? "text-primary" : "text-muted-foreground"
+                          isExactlyActive
+                            ? "text-primary"
+                            : "text-muted-foreground"
                         )}
                       />
                     </SidebarMenuButton>
@@ -88,7 +107,8 @@ export function NavMain({
                                 href={subItem.url}
                                 className={cn(
                                   baseMenuItemClasses,
-                                  isSubItemActive && "bg-primary/10 text-primary font-medium"
+                                  isSubItemActive &&
+                                    "bg-primary/10 text-primary font-medium"
                                 )}
                               >
                                 <span>{subItem.title}</span>
@@ -115,10 +135,12 @@ export function NavMain({
                     )}
                   >
                     {item.icon && (
-                      <item.icon 
+                      <item.icon
                         className={cn(
                           baseIconClasses,
-                          isItemActive ? "text-primary" : "text-muted-foreground"
+                          isItemActive
+                            ? "text-primary"
+                            : "text-muted-foreground"
                         )}
                       />
                     )}

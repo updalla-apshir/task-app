@@ -13,6 +13,12 @@ const publicRoutes = [
   "/verify-email",
 ];
 
+const protectedRoutes = [
+  {
+    path: "/tasks",
+  },
+];
+
 // ✅ Normalize path
 function normalizePath(path: string) {
   return path.replace(/\/+$/, "") || "/";
@@ -26,16 +32,25 @@ function isPublicRoute(path: string) {
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = isPublicRoute(path);
+  const pathname = request.nextUrl.pathname;
 
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
+  const role = token?.role;
+
+  // Redirect Team_Member users to tasks page if they try to access other  pages
+  if (role === "Team_Member" && !pathname.startsWith("/tasks")) {
+    return NextResponse.redirect(new URL("/tasks", request.url));
+  }
 
   if (isPublic) {
     if (
       token &&
-      (path === "/sign-in" || path === "/sign-up" || path === "/forget-password")
+      (path === "/sign-in" ||
+        path === "/sign-up" ||
+        path === "/forget-password")
     ) {
       return NextResponse.redirect(new URL("/", request.url));
     }
@@ -48,7 +63,6 @@ export async function middleware(request: NextRequest) {
 
   return NextResponse.next();
 }
-
 
 // ✅ Apply to app routes
 export const config = {
