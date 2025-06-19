@@ -17,7 +17,7 @@ import { useSession } from "next-auth/react";
 import { TaskProvider } from "@/contexts/TaskContext";
 import { updateTaskCompletionStatus } from "../../../actions/task";
 import { toast } from "sonner";
-import { TableSkeleton } from "../team/page";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 function TasksPageContent() {
   const { value, setValue } = useValue();

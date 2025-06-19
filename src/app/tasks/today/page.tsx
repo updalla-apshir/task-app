@@ -11,7 +11,7 @@ import { TaskProvider } from "@/contexts/TaskContext";
 import { CalendarDays } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
-import { TableSkeleton } from "@/app/team/page";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 function TodayTasksContent() {
   const { value } = useValue();

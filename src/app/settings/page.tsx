@@ -34,16 +34,19 @@ import {
   FormItem,
   FormLabel,
 } from "@/components/ui/form";
-import { TableSkeleton } from "../team/page";
+import { TableSkeleton } from "@/components/ui/skeletons";
 import { userdata } from "../../../actions/sign-in";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+
+// Import Role enum from a shared types file
+type Role = "User" | "Premium" | "Team_Member";
 
 type UserState = {
   id: string;
   name: string;
   email: string;
-  role?: string;
+  role?: Role | null;
 };
 
 export default function SettingsPage() {

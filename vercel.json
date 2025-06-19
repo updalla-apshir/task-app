@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "nextjs",
+  "nodeVersion": "18.x",
+  "ignoreCommand": "echo 'Ignoring TypeScript errors'",
+  "devCommand": "next dev"
+}

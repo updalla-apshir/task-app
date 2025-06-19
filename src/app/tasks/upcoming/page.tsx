@@ -14,7 +14,7 @@ import { Calendar } from "lucide-react";
 import { isAfter, isBefore, startOfToday, endOfWeek } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
-import { TableSkeleton } from "@/app/team/page";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 function UpcomingTasksContent() {
   const { value } = useValue();

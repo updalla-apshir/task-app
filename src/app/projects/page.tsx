@@ -20,7 +20,7 @@ import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { projectSchema } from "../../schemas/shema";
 import { toast } from "sonner";
-import { TableSkeleton } from "../team/page";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 interface TeamMember {
   id: string;

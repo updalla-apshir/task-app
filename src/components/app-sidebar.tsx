@@ -85,16 +85,6 @@ const sideData = {
       icon: Users,
     },
     {
-      title: "Files",
-      url: "/files",
-      icon: Paperclip,
-    },
-    {
-      title: "Reports",
-      url: "/reports",
-      icon: BarChart2,
-    },
-    {
       title: "Profile",
       url: "/profile",
       icon: User,

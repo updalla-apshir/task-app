@@ -100,7 +100,7 @@ export function Twofauth({ email, password }: VerifyAccountProps) {
           redirect: false,
         })
 
-        if (response.ok) {
+        if (response && response.ok) {
           toast.success("Email verified successfully!", {
             position: "top-center",
           });

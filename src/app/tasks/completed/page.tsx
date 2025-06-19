@@ -14,7 +14,7 @@ import { CheckCircle2 } from "lucide-react";
 import { format, isToday, isThisWeek } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
-import { TableSkeleton } from "@/app/team/page";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 function CompletedTasksContent() {
   const { value } = useValue();
