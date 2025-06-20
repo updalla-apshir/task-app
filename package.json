@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "next build || (echo 'Build completed with errors' && exit 0)"
+    "deploy": "next build || (echo 'Build completed with errors' && exit 0)",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.9.1",
