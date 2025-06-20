@@ -11,8 +11,12 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    // This setting turns off static page generation for all pages
+    disableStaticRenders: true
+  },
   // Flag to indicate that the app is being deployed on Vercel
   output: 'standalone',
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;
