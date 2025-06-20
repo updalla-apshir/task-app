@@ -1,6 +1,7 @@
+// ✅ Correct next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  reactStrictMode: true,
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -12,7 +13,7 @@ const nextConfig = {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
-  },
+  }
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;

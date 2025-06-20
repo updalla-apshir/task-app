@@ -1,40 +1,42 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
-import GithubProvider from "next-auth/providers/github";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import GitHub from "next-auth/providers/github";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import { Role } from "@/types/user";
 
+interface CredentialsInput {
+  email: string;
+  password: string;
+}
+
+// Export the auth options for route handlers
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
+  
   providers: [
-    CredentialsProvider({
+    Credentials({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        const { email, password } = credentials as CredentialsInput;
+        if (!email || !password) {
           throw new Error("Email and password are required.");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user || !user.password) {
           throw new Error("Invalid credentials.");
         }
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
+        const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
           throw new Error("Invalid credentials.");
         }
@@ -42,19 +44,16 @@ export const authOptions = {
         return user;
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? ""
     }),
-    GithubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+    GitHub({
+      clientId: process.env.GITHUB_CLIENT_ID ?? "",
+      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? ""
     }),
   ],
-  session: {
-    strategy: "jwt",
-    maxAge: 86400, // 24 hours in seconds
-  },
+
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {
@@ -67,7 +66,7 @@ export const authOptions = {
           select: { role: true },
         });
 
-        token.role = dbUser?.role || "User";
+        token.role = (dbUser?.role as Role) ?? Role.User;
       }
 
       return token;
@@ -94,7 +93,7 @@ export const authOptions = {
           (acc) => acc.provider === account.provider
         );
 
-        if (!isLinked) {
+        if (!isLinked && account.provider !== "credentials") {
           await prisma.account.create({
             data: {
               userId: existingUser.id,
@@ -115,12 +114,11 @@ export const authOptions = {
       return true;
     },
   },
+
   pages: {
     signIn: "/sign-in",
     signOut: "/sign-out",
   },
 };
 
-export default NextAuth(authOptions);
-
-export const auth = (req: any, res: any) => NextAuth(req, res, authOptions);
+export const { handlers, signIn, signOut, auth } = NextAuth(authOptions);
